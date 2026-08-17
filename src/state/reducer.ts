@@ -12,6 +12,7 @@ import type {
 } from '../types'
 import { diffDays } from '../lib/date'
 import { defaultCategories } from '../lib/categories'
+import { EXPAND_MONTHS, NO_PAD, type AxisPad } from '../lib/axis'
 
 export interface State {
   /** False until the persisted state has been read back. */
@@ -19,11 +20,13 @@ export interface State {
   items: Item[]
   cats: Category[]
   lang: Lang
-  /** Day / week / month zoom, remembered across restarts. */
+  /** Day / week / month / year zoom, remembered across restarts. */
   view: ViewMode
   showDiff: boolean
   showWeekend: boolean
   /** Ephemeral UI state, never persisted. */
+  /** Months the axis has grown past its default window, in each direction. */
+  axisPad: AxisPad
   query: string
   cat: CatFilter
   form: FormDraft | null
@@ -40,6 +43,7 @@ export const initialState: State = {
   showDiff: true,
   showWeekend: true,
   view: 'week',
+  axisPad: NO_PAD,
   query: '',
   cat: 'all',
   form: null,
@@ -51,6 +55,8 @@ export const initialState: State = {
 export type Action =
   | { type: 'hydrate'; payload: PersistedState | null }
   | { type: 'setView'; view: ViewMode }
+  | { type: 'expandAxis'; direction: 'past' | 'future' }
+  | { type: 'setAxisPad'; pad: AxisPad }
   | { type: 'setLang'; lang: Lang }
   | { type: 'toggleDiff' }
   | { type: 'toggleWeekend' }
@@ -152,7 +158,24 @@ export function reducer(state: State, action: Action): State {
     }
 
     case 'setView':
-      return { ...state, view: action.view }
+      // Column scale changes completely, and the timeline recentres on today,
+      // so however far the old view had been scrolled no longer means anything.
+      return { ...state, view: action.view, axisPad: NO_PAD }
+
+    case 'expandAxis': {
+      const step = EXPAND_MONTHS[state.view]
+      const pad = state.axisPad
+      return {
+        ...state,
+        axisPad:
+          action.direction === 'past'
+            ? { ...pad, past: pad.past + step }
+            : { ...pad, future: pad.future + step },
+      }
+    }
+
+    case 'setAxisPad':
+      return { ...state, axisPad: action.pad }
     case 'setLang':
       return { ...state, lang: action.lang }
     case 'toggleDiff':

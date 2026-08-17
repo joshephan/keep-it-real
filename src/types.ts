@@ -1,6 +1,6 @@
 export type Track = 'actual' | 'plan'
 export type CategoryId = string
-export type ViewMode = 'day' | 'week' | 'month'
+export type ViewMode = 'day' | 'week' | 'month' | 'year'
 export type Lang = 'ko' | 'en'
 export type CatFilter = 'all' | CategoryId
 

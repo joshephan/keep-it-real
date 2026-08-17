@@ -45,7 +45,7 @@ export const SHADOW = {
 } as const
 
 /** Column widths per view, and the row geometry shared by both lanes. */
-export const COL_W: Record<ViewMode, number> = { day: 128, week: 168, month: 300 }
+export const COL_W: Record<ViewMode, number> = { day: 128, week: 168, month: 300, year: 360 }
 export const BAR_H = 30
 export const ROW_PITCH = 36
 export const LANE_TOP = 10

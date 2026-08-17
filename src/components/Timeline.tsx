@@ -207,9 +207,12 @@ function ColumnHeader({ axis, todayIndex }: { axis: Axis; todayIndex: number }) 
             >
               {col.label}
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.text5, letterSpacing: '0.06em' }}>
-              {col.sub}
-            </span>
+            {/* Year columns have nothing to say on the second line. */}
+            {col.sub && (
+              <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.text5, letterSpacing: '0.06em' }}>
+                {col.sub}
+              </span>
+            )}
           </div>
         )
       })}

@@ -253,3 +253,26 @@ describe('hydration', () => {
     expect(s).toMatchObject({ hydrated: true, view: 'week', lang: 'ko' })
   })
 })
+
+describe('axis window', () => {
+  it('grows into the past a step at a time', () => {
+    let s = reducer(initialState, { type: 'expandAxis', direction: 'past' })
+    expect(s.axisPad).toMatchObject({ past: 6, future: 0 }) // week view step
+    s = reducer(s, { type: 'expandAxis', direction: 'past' })
+    expect(s.axisPad).toMatchObject({ past: 12, future: 0 })
+  })
+
+  it('uses a step sized for the current view', () => {
+    const day = reducer({ ...initialState, view: 'day' }, { type: 'expandAxis', direction: 'future' })
+    expect(day.axisPad).toMatchObject({ past: 0, future: 2 })
+
+    const year = reducer({ ...initialState, view: 'year' }, { type: 'expandAxis', direction: 'past' })
+    expect(year.axisPad).toMatchObject({ past: 120, future: 0 })
+  })
+
+  it('forgets how far it scrolled when the view changes', () => {
+    const scrolled = reducer(initialState, { type: 'expandAxis', direction: 'past' })
+    const switched = reducer(scrolled, { type: 'setView', view: 'month' })
+    expect(switched.axisPad).toMatchObject({ past: 0, future: 0 })
+  })
+})

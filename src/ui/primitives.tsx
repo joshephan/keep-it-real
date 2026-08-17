@@ -3,9 +3,9 @@ import { C, MONO, SHADOW } from '../tokens'
 
 /** Shared style builders so both calendars — and both modals — stay identical. */
 
-export const segButton = (active: boolean): CSSProperties => ({
+export const segButton = (active: boolean, tight = false): CSSProperties => ({
   height: 26,
-  padding: '0 13px',
+  padding: tight ? '0 9px' : '0 13px',
   borderRadius: 6,
   border: 'none',
   cursor: 'pointer',

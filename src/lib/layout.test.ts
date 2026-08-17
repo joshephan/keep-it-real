@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createAxis } from './axis'
+import { createAxis, padToReveal } from './axis'
 import { layoutBars } from './layout'
 import type { Item } from '../types'
 
@@ -23,14 +23,52 @@ const item = (id: string, start: string, end: string, startTime: string | null =
 const axis = createAxis('day', [], '2026-08-17', 'ko')
 
 describe('axis', () => {
-  it('covers today plus padding, snapped to whole months', () => {
-    expect(axis.rangeStart).toBe('2026-06-01')
-    expect(axis.rangeEnd).toBe('2027-02-28')
+  it('covers today plus a per-view window, snapped to whole months', () => {
+    // day view keeps a tight window; year view needs several years of runway
+    expect(axis.rangeStart).toBe('2026-07-01')
+    expect(axis.rangeEnd).toBe('2026-10-31')
+
+    const years = createAxis('year', [], '2026-08-17', 'ko')
+    expect(years.rangeStart).toBe('2023-08-01')
+    expect(years.rangeEnd).toBe('2031-08-31')
   })
 
   it('grows to include items outside the default window', () => {
     const wide = createAxis('month', [item('x', '2025-11-02', '2025-11-04')], '2026-08-17', 'ko')
     expect(wide.rangeStart).toBe('2025-11-01')
+  })
+
+  it('extends into the past and future by the requested padding', () => {
+    const back = createAxis('day', [], '2026-08-17', 'ko', { past: 6, future: 0 })
+    expect(back.rangeStart).toBe('2026-01-01')
+    expect(back.rangeEnd).toBe(axis.rangeEnd)
+
+    const forward = createAxis('day', [], '2026-08-17', 'ko', { past: 0, future: 12 })
+    expect(forward.rangeEnd).toBe('2027-10-31')
+  })
+
+  it('gives one column per year in year view', () => {
+    const years = createAxis('year', [], '2026-08-17', 'ko')
+    expect(years.cols.map((c) => c.label)).toEqual([
+      '2023년',
+      '2024년',
+      '2025년',
+      '2026년',
+      '2027년',
+      '2028년',
+      '2029년',
+      '2030년',
+      '2031년',
+    ])
+    expect(years.colIndex('2026-05-05')).toBe(3)
+    expect(years.colIndex('2029-12-31')).toBe(6)
+  })
+
+  it('reports the padding needed to reveal a date outside the range', () => {
+    const current = { past: 0, future: 0 }
+    expect(padToReveal(axis, current, '2026-08-01')).toBeNull()
+    expect(padToReveal(axis, current, '2025-12-25')).toMatchObject({ past: 8 })
+    expect(padToReveal(axis, current, '2027-03-02')).toMatchObject({ future: 6 })
   })
 
   it('clamps out-of-range dates onto the first and last column', () => {

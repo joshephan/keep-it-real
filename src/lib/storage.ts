@@ -81,7 +81,7 @@ function normalize(raw: unknown): PersistedState | null {
     cats: cats.length ? cats : defaultCategories(),
     lang: o.lang === 'en' ? 'en' : 'ko',
     // Stores written before the view was remembered fall back to the default.
-    view: o.view === 'day' || o.view === 'month' ? o.view : 'week',
+    view: o.view === 'day' || o.view === 'month' || o.view === 'year' ? o.view : 'week',
     showDiff: o.showDiff !== false,
     showWeekend: o.showWeekend !== false,
   }

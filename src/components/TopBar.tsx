@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import type { ViewMode } from '../types'
-import { C } from '../tokens'
+import { C, MONO } from '../tokens'
 import { useApp } from '../state/AppContext'
 import { ghostButton, iconButton, segButton } from '../ui/primitives'
 import { newDraft } from '../state/reducer'
@@ -10,17 +11,20 @@ interface Props {
   onPrev: () => void
   onNext: () => void
   onToday: () => void
+  onGoToDate: (date: string) => void
 }
 
-export function TopBar({ onPrev, onNext, onToday }: Props) {
+export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
   const { state, dispatch, t, today } = useApp()
   const layout = useLayoutMode()
+  const [jumpDate, setJumpDate] = useState(today)
   const trashCount = state.items.filter((i) => i.deleted).length
 
   const views: { id: ViewMode; label: string }[] = [
     { id: 'day', label: t.day },
     { id: 'week', label: t.week },
     { id: 'month', label: t.month },
+    { id: 'year', label: t.year },
   ]
 
   return (
@@ -62,12 +66,39 @@ export function TopBar({ onPrev, onNext, onToday }: Props) {
           <button
             key={v.id}
             onClick={() => dispatch({ type: 'setView', view: v.id })}
-            style={segButton(state.view === v.id)}
+            style={segButton(state.view === v.id, layout.tight)}
           >
             {v.label}
           </button>
         ))}
       </div>
+
+      {/* Jump straight to a date; the axis grows to reach it if it is outside. */}
+      <input
+        type="date"
+        value={jumpDate}
+        title={t.goToDate}
+        aria-label={t.goToDate}
+        onChange={(e) => {
+          const value = e.target.value
+          if (!value) return
+          setJumpDate(value)
+          onGoToDate(value)
+        }}
+        style={noDrag({
+          flex: '0 0 auto',
+          height: 30,
+          width: layout.tight ? 122 : 136,
+          padding: layout.tight ? '0 6px' : '0 9px',
+          borderRadius: 7,
+          border: `1px solid ${C.border}`,
+          background: C.surface,
+          color: C.text2,
+          fontFamily: MONO,
+          fontSize: layout.tight ? 11 : 11.5,
+          outline: 'none',
+        })}
+      />
 
       <div
         style={noDrag({
