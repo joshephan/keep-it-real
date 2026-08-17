@@ -1,6 +1,7 @@
-import type { Category, Item, PersistedState } from '../types'
+import type { Category, ColScale, Item, PersistedState, ViewMode } from '../types'
 import { defaultCategories } from './categories'
 import { isTime } from './date'
+import { clampColScale, defaultColScale } from '../tokens'
 
 const WEB_KEY = 'keepitreal.v1'
 
@@ -65,6 +66,17 @@ function normalizeCategory(raw: unknown): Category | null {
   }
 }
 
+/** Missing or out-of-range widths fall back to the designed one, per view. */
+function normalizeColScale(raw: unknown): ColScale {
+  const out = defaultColScale()
+  if (!raw || typeof raw !== 'object') return out
+  const o = raw as Record<string, unknown>
+  for (const view of Object.keys(out) as ViewMode[]) {
+    if (typeof o[view] === 'number') out[view] = clampColScale(o[view])
+  }
+  return out
+}
+
 function normalize(raw: unknown): PersistedState | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
@@ -82,6 +94,7 @@ function normalize(raw: unknown): PersistedState | null {
     lang: o.lang === 'en' ? 'en' : 'ko',
     // Stores written before the view was remembered fall back to the default.
     view: o.view === 'day' || o.view === 'month' || o.view === 'year' ? o.view : 'week',
+    colScale: normalizeColScale(o.colScale),
     showDiff: o.showDiff !== false,
     showWeekend: o.showWeekend !== false,
   }

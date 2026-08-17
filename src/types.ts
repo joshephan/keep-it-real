@@ -70,12 +70,16 @@ export interface PromoteDraft {
   end: string
 }
 
+/** Column width multiplier per view, so widening the week view leaves the month view alone. */
+export type ColScale = Record<ViewMode, number>
+
 export interface PersistedState {
   version: 1
   items: Item[]
   cats: Category[]
   lang: Lang
   view: ViewMode
+  colScale: ColScale
   showDiff: boolean
   showWeekend: boolean
 }

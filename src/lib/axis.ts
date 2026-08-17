@@ -1,5 +1,5 @@
 import type { Item, Lang, ViewMode } from '../types'
-import { COL_W } from '../tokens'
+import { clampColScale, COL_SCALE, COL_W } from '../tokens'
 import {
   addDays,
   addMonths,
@@ -31,6 +31,7 @@ export interface Axis {
   rangeStart: string
   rangeEnd: string
   cols: Column[]
+  /** Width of one column in pixels, after the user's width setting. */
   colW: number
   /** Total pixel width of the track. */
   total: number
@@ -176,10 +177,13 @@ export function createAxis(
   today: string,
   lang: Lang,
   extra: AxisPad = NO_PAD,
+  scale: number = COL_SCALE.default,
 ): Axis {
   const { start, end } = axisRange(items, today, view, extra)
   const cols = buildColumns(view, start, end, lang)
-  const colW = COL_W[view]
+  // Whole pixels only: a fractional column width makes the grid lines shimmer
+  // as the timeline scrolls.
+  const colW = Math.round(COL_W[view] * clampColScale(scale))
 
   const clamp = (date: string): string => (date < start ? start : date > end ? end : date)
 
@@ -194,6 +198,29 @@ export function createAxis(
   }
 
   return { view, rangeStart: start, rangeEnd: end, cols, colW, total: cols.length * colW, colIndex }
+}
+
+/**
+ * Where an item lands after being dragged `cols` columns sideways. A column is
+ * whatever the current view calls one, so the same gesture nudges a day, a
+ * week, a month or a year. The span in days rides along unchanged.
+ */
+export function shiftByColumns(
+  item: Pick<Item, 'start' | 'end'>,
+  view: ViewMode,
+  cols: number,
+): { start: string; end: string } {
+  const from = item.start
+  const start =
+    view === 'day'
+      ? addDays(from, cols)
+      : view === 'week'
+        ? addDays(from, cols * 7)
+        : view === 'month'
+          ? addMonths(from, cols)
+          : addMonths(from, cols * 12)
+  const span = Math.max(0, diffDays(item.start, item.end || item.start))
+  return { start, end: addDays(start, span) }
 }
 
 /** Year(s) shown in the gutter header cell. */

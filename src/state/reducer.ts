@@ -2,6 +2,7 @@ import type {
   CatFilter,
   Category,
   CategoryId,
+  ColScale,
   FormDraft,
   Item,
   Lang,
@@ -13,6 +14,7 @@ import type {
 import { diffDays } from '../lib/date'
 import { defaultCategories } from '../lib/categories'
 import { EXPAND_MONTHS, NO_PAD, type AxisPad } from '../lib/axis'
+import { clampColScale, defaultColScale } from '../tokens'
 
 export interface State {
   /** False until the persisted state has been read back. */
@@ -22,6 +24,8 @@ export interface State {
   lang: Lang
   /** Day / week / month / year zoom, remembered across restarts. */
   view: ViewMode
+  /** Column width multiplier, kept per view and remembered across restarts. */
+  colScale: ColScale
   showDiff: boolean
   showWeekend: boolean
   /** Ephemeral UI state, never persisted. */
@@ -43,6 +47,7 @@ export const initialState: State = {
   showDiff: true,
   showWeekend: true,
   view: 'week',
+  colScale: defaultColScale(),
   axisPad: NO_PAD,
   query: '',
   cat: 'all',
@@ -55,6 +60,8 @@ export const initialState: State = {
 export type Action =
   | { type: 'hydrate'; payload: PersistedState | null }
   | { type: 'setView'; view: ViewMode }
+  /** Column width for the view currently on screen. */
+  | { type: 'setColScale'; scale: number }
   | { type: 'expandAxis'; direction: 'past' | 'future' }
   | { type: 'setAxisPad'; pad: AxisPad }
   | { type: 'setLang'; lang: Lang }
@@ -66,6 +73,8 @@ export type Action =
   | { type: 'patchForm'; patch: Partial<FormDraft> }
   | { type: 'closeForm' }
   | { type: 'saveForm'; newId: string }
+  /** Bar dragged to another column: dates only, nothing else about the item. */
+  | { type: 'moveItem'; id: string; start: string; end: string }
   | { type: 'trashItem'; at: string }
   | { type: 'unpromote' }
   | { type: 'openPromote'; draft: PromoteDraft }
@@ -152,6 +161,7 @@ export function reducer(state: State, action: Action): State {
         cats: p.cats.length ? p.cats : defaultCategories(),
         lang: p.lang,
         view: p.view,
+        colScale: p.colScale,
         showDiff: p.showDiff,
         showWeekend: p.showWeekend,
       }
@@ -161,6 +171,12 @@ export function reducer(state: State, action: Action): State {
       // Column scale changes completely, and the timeline recentres on today,
       // so however far the old view had been scrolled no longer means anything.
       return { ...state, view: action.view, axisPad: NO_PAD }
+
+    case 'setColScale':
+      return {
+        ...state,
+        colScale: { ...state.colScale, [state.view]: clampColScale(action.scale) },
+      }
 
     case 'expandAxis': {
       const step = EXPAND_MONTHS[state.view]
@@ -249,6 +265,16 @@ export function reducer(state: State, action: Action): State {
         deletedAt: null,
       }
       return { ...state, items: [...state.items, item], form: null }
+    }
+
+    case 'moveItem': {
+      // Only the dragged record moves. A promoted pair is deliberately left
+      // unlinked here: dragging the plan is a replan, dragging the actual is a
+      // correction, and the drift between them is what the diff is for.
+      const items = state.items.map((i) =>
+        i.id === action.id ? { ...i, start: action.start, end: action.end } : i,
+      )
+      return { ...state, items }
     }
 
     case 'trashItem': {

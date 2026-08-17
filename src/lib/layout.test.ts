@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createAxis, padToReveal } from './axis'
+import { createAxis, padToReveal, shiftByColumns } from './axis'
 import { layoutBars } from './layout'
+import { COL_SCALE, COL_W } from '../tokens'
 import type { Item } from '../types'
 
 const item = (id: string, start: string, end: string, startTime: string | null = null): Item => ({
@@ -71,9 +72,53 @@ describe('axis', () => {
     expect(padToReveal(axis, current, '2027-03-02')).toMatchObject({ future: 6 })
   })
 
+  it('scales the column width, and the track total with it', () => {
+    const wide = createAxis('day', [], '2026-08-17', 'ko', undefined, 1.5)
+    expect(wide.colW).toBe(Math.round(COL_W.day * 1.5))
+    expect(wide.total).toBe(wide.cols.length * wide.colW)
+    // Columns are unchanged, so a date still lands on the same one.
+    expect(wide.colIndex('2026-08-17')).toBe(axis.colIndex('2026-08-17'))
+  })
+
+  it('refuses a width outside the slider range', () => {
+    expect(createAxis('day', [], '2026-08-17', 'ko', undefined, 99).colW).toBe(
+      Math.round(COL_W.day * COL_SCALE.max),
+    )
+  })
+
   it('clamps out-of-range dates onto the first and last column', () => {
     expect(axis.colIndex('2020-01-01')).toBe(0)
     expect(axis.colIndex('2030-01-01')).toBe(axis.cols.length - 1)
+  })
+})
+
+describe('shifting an item by columns', () => {
+  const span = item('x', '2026-08-17', '2026-08-20')
+
+  it('moves by one column of whatever the view is showing', () => {
+    expect(shiftByColumns(span, 'day', 3)).toEqual({ start: '2026-08-20', end: '2026-08-23' })
+    expect(shiftByColumns(span, 'week', 1)).toEqual({ start: '2026-08-24', end: '2026-08-27' })
+    expect(shiftByColumns(span, 'month', 1)).toEqual({ start: '2026-09-17', end: '2026-09-20' })
+    expect(shiftByColumns(span, 'year', 1)).toEqual({ start: '2027-08-17', end: '2027-08-20' })
+  })
+
+  it('moves backwards too, and keeps the span in days', () => {
+    expect(shiftByColumns(span, 'day', -2)).toEqual({ start: '2026-08-15', end: '2026-08-18' })
+    expect(shiftByColumns(span, 'week', -2)).toEqual({ start: '2026-08-03', end: '2026-08-06' })
+  })
+
+  it('leaves a single-day item single-day', () => {
+    expect(shiftByColumns(item('x', '2026-08-17', '2026-08-17'), 'day', 4)).toEqual({
+      start: '2026-08-21',
+      end: '2026-08-21',
+    })
+  })
+
+  it('does not overflow a short month when moving by months', () => {
+    expect(shiftByColumns(item('x', '2026-01-31', '2026-01-31'), 'month', 1)).toEqual({
+      start: '2026-02-28',
+      end: '2026-02-28',
+    })
   })
 })
 

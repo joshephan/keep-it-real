@@ -1,5 +1,5 @@
 import type { CatFilter } from '../types'
-import { C } from '../tokens'
+import { C, COL_SCALE, MONO } from '../tokens'
 import { useApp } from '../state/AppContext'
 import { pill } from '../ui/primitives'
 import { catLabel } from '../lib/categories'
@@ -25,7 +25,10 @@ export function FilterBar() {
         padding: layout.tight ? '0 12px' : '0 18px',
         background: C.surface,
         borderBottom: `1px solid ${C.borderStrong}`,
+        overflowX: 'auto',
+        overflowY: 'hidden',
       }}
+      className="kir-hscroll"
     >
       <input
         value={state.query}
@@ -69,6 +72,63 @@ export function FilterBar() {
           </button>
         ))}
       </div>
+
+      <div style={{ width: 1, height: 18, background: C.borderLight, flex: '0 0 auto' }} />
+      <ColWidthSlider />
+    </div>
+  )
+}
+
+/**
+ * Stretches the columns of whichever view is on screen. Each view keeps its own
+ * width, so widening the week view leaves the month view as it was.
+ */
+function ColWidthSlider() {
+  const { state, dispatch, t } = useApp()
+  const layout = useLayoutMode()
+  const scale = state.colScale[state.view]
+  const atDefault = scale === COL_SCALE.default
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+      {!layout.compact && (
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: C.text3, whiteSpace: 'nowrap' }}>
+          {t.colWidth}
+        </span>
+      )}
+      <input
+        type="range"
+        className="kir-range"
+        aria-label={t.colWidth}
+        title={t.colWidthHint}
+        min={COL_SCALE.min}
+        max={COL_SCALE.max}
+        step={COL_SCALE.step}
+        value={scale}
+        onChange={(e) => dispatch({ type: 'setColScale', scale: Number(e.target.value) })}
+        style={{ width: layout.tight ? 84 : 116 }}
+      />
+      {/* Doubles as the reset: back to the width this view was designed at. */}
+      <button
+        onClick={() => dispatch({ type: 'setColScale', scale: COL_SCALE.default })}
+        disabled={atDefault}
+        title={t.colWidthReset}
+        style={{
+          fontFamily: MONO,
+          fontSize: 10.5,
+          fontWeight: 600,
+          width: 38,
+          height: 22,
+          padding: 0,
+          borderRadius: 6,
+          border: `1px solid ${atDefault ? 'transparent' : C.border}`,
+          background: atDefault ? 'transparent' : C.surface,
+          color: atDefault ? C.text5 : C.text2,
+          cursor: atDefault ? 'default' : 'pointer',
+        }}
+      >
+        {Math.round(scale * 100)}%
+      </button>
     </div>
   )
 }

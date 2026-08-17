@@ -50,6 +50,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cats: state.cats,
         lang: state.lang,
         view: state.view,
+        colScale: state.colScale,
         showDiff: state.showDiff,
         showWeekend: state.showWeekend,
       })
@@ -61,6 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state.cats,
     state.lang,
     state.view,
+    state.colScale,
     state.showDiff,
     state.showWeekend,
   ])

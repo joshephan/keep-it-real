@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { editDraft, initialState, newDraft, reducer, type State } from './reducer'
+import { COL_SCALE, defaultColScale } from '../tokens'
 import type { Item } from '../types'
 
 const plan: Item = {
@@ -165,6 +166,48 @@ describe('promotion', () => {
   })
 })
 
+describe('dragging a bar to another column', () => {
+  it('moves the dates and leaves everything else alone', () => {
+    const s = reducer(withItems([plan]), {
+      type: 'moveItem',
+      id: 'p1',
+      start: '2026-07-09',
+      end: '2026-08-17',
+    })
+    expect(s.items[0]).toMatchObject({
+      start: '2026-07-09',
+      end: '2026-08-17',
+      title: plan.title,
+      cat: 'work',
+      done: false,
+    })
+  })
+
+  it('does not drag the other half of a promoted pair along', () => {
+    let s = withItems([plan])
+    s = reducer(s, {
+      type: 'openPromote',
+      draft: { id: 'p1', name: plan.title, planRange: '', planEnd: '2026-08-14', start: '2026-07-20', end: '2026-07-28' },
+    })
+    s = reducer(s, { type: 'confirmPromote', newId: 'a1' })
+    s = reducer(s, { type: 'moveItem', id: 'a1', start: '2026-07-23', end: '2026-07-31' })
+
+    // The actual moved; the plan it came from kept its own dates and its link.
+    expect(s.items.find((i) => i.id === 'a1')).toMatchObject({ start: '2026-07-23', end: '2026-07-31' })
+    expect(s.items.find((i) => i.id === 'p1')).toMatchObject({
+      start: '2026-07-06',
+      end: '2026-08-14',
+      done: true,
+      actualId: 'a1',
+    })
+  })
+
+  it('ignores an id that is no longer there', () => {
+    const s = reducer(withItems([plan]), { type: 'moveItem', id: 'gone', start: '2026-01-01', end: '2026-01-01' })
+    expect(s.items).toEqual([plan])
+  })
+})
+
 describe('categories', () => {
   it('renames and recolours without touching item links', () => {
     let s = reducer(withItems([plan]), { type: 'patchCategory', id: 'work', patch: { name: '업무' } })
@@ -231,6 +274,7 @@ describe('hydration', () => {
     cats: [],
     lang: 'en' as const,
     view: 'month' as const,
+    colScale: { ...defaultColScale(), month: 1.5 },
     showDiff: false,
     showWeekend: false,
   }
@@ -238,6 +282,7 @@ describe('hydration', () => {
   it('restores the saved view, language and display settings', () => {
     const s = reducer(initialState, { type: 'hydrate', payload: stored })
     expect(s).toMatchObject({ hydrated: true, view: 'month', lang: 'en', showDiff: false, showWeekend: false })
+    expect(s.colScale.month).toBe(1.5)
   })
 
   it('keeps the chosen view after switching it', () => {
@@ -274,5 +319,25 @@ describe('axis window', () => {
     const scrolled = reducer(initialState, { type: 'expandAxis', direction: 'past' })
     const switched = reducer(scrolled, { type: 'setView', view: 'month' })
     expect(switched.axisPad).toMatchObject({ past: 0, future: 0 })
+  })
+})
+
+describe('column width', () => {
+  it('applies the width to the view on screen only', () => {
+    const s = reducer(initialState, { type: 'setColScale', scale: 1.8 })
+    expect(s.colScale).toMatchObject({ week: 1.8, day: 1, month: 1, year: 1 })
+  })
+
+  it('clamps a width outside the slider range', () => {
+    expect(reducer(initialState, { type: 'setColScale', scale: 12 }).colScale.week).toBe(COL_SCALE.max)
+    expect(reducer(initialState, { type: 'setColScale', scale: 0 }).colScale.week).toBe(COL_SCALE.min)
+  })
+
+  it('keeps each view at its own width when switching between them', () => {
+    let s = reducer(initialState, { type: 'setColScale', scale: 1.5 })
+    s = reducer(s, { type: 'setView', view: 'day' })
+    expect(s.colScale.day).toBe(1)
+    s = reducer(s, { type: 'setView', view: 'week' })
+    expect(s.colScale.week).toBe(1.5)
   })
 })

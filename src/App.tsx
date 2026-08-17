@@ -20,8 +20,8 @@ export default function App() {
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   const axis = useMemo(
-    () => createAxis(state.view, state.items, today, state.lang, state.axisPad),
-    [state.view, state.items, today, state.lang, state.axisPad],
+    () => createAxis(state.view, state.items, today, state.lang, state.axisPad, state.colScale[state.view]),
+    [state.view, state.items, today, state.lang, state.axisPad, state.colScale],
   )
 
   const centerOn = useCallback(
@@ -39,7 +39,7 @@ export default function App() {
   const expanding = useRef(false)
   /** A date to centre on once the axis has grown far enough to contain it. */
   const pendingJump = useRef<string | null>(null)
-  const anchor = useRef<{ view: ViewMode; todayX: number } | null>(null)
+  const anchor = useRef<{ view: ViewMode; todayX: number; colW: number } | null>(null)
 
   // Keep the viewport on the same dates when the axis grows. Adding months to
   // the past shifts every column right, so the scroll offset has to move with
@@ -48,7 +48,7 @@ export default function App() {
     const el = scrollerRef.current
     const todayX = axis.colIndex(today) * axis.colW
     const previous = anchor.current
-    anchor.current = { view: axis.view, todayX }
+    anchor.current = { view: axis.view, todayX, colW: axis.colW }
     expanding.current = false
     if (!el) return
 
@@ -59,10 +59,18 @@ export default function App() {
       return
     }
 
-    if (previous && previous.view === axis.view) {
-      const delta = todayX - previous.todayX
-      if (delta !== 0) el.scrollLeft += delta
+    if (!previous || previous.view !== axis.view) return
+
+    if (previous.colW !== axis.colW) {
+      // Widening the cells stretches every position from the origin, so the
+      // date under the middle of the viewport is what the offset holds onto.
+      const center = el.scrollLeft + el.clientWidth / 2
+      el.scrollLeft = Math.max(0, (center * axis.colW) / previous.colW - el.clientWidth / 2)
+      return
     }
+
+    const delta = todayX - previous.todayX
+    if (delta !== 0) el.scrollLeft += delta
   }, [axis, today])
 
   // Reaching either end grows the range rather than stopping the scroll.

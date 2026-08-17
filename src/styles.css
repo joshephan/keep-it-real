@@ -73,6 +73,46 @@ button {
   width: 0;
 }
 
+/* Column width slider in the filter bar. */
+.kir-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+.kir-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: #dfe3e7;
+}
+
+.kir-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid #8a9199;
+  box-shadow: 0 1px 2px rgba(16, 20, 26, 0.16);
+}
+
+.kir-range:hover::-webkit-slider-thumb {
+  border-color: #b5442e;
+}
+
+.kir-range:focus-visible {
+  outline: none;
+}
+
+.kir-range:focus-visible::-webkit-slider-thumb {
+  border-color: #b5442e;
+}
+
 @keyframes kirFade {
   from {
     opacity: 0;
