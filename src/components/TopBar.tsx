@@ -30,6 +30,7 @@ export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
   return (
     <div
       // The frameless window is dragged by this bar; controls opt back out below.
+      className="kir-hscroll"
       style={{
         height: 60,
         flex: '0 0 60px',
@@ -39,6 +40,10 @@ export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
         padding: layout.tight ? '0 12px' : '0 18px',
         background: C.surface,
         borderBottom: `1px solid ${C.borderStrong}`,
+        // Nothing here shrinks, so at heavy zoom the row scrolls rather than
+        // hiding the window controls off the right edge.
+        overflowX: 'auto',
+        overflowY: 'hidden',
         WebkitAppRegion: 'drag',
       } as React.CSSProperties}
     >

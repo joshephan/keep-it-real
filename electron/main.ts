@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, session, shell, type WebContents } from 'electron'
 import path from 'node:path'
 import { loadState, saveState, storePath } from './store'
 import { getAutostart, setAutostart } from './autostart'
@@ -9,6 +9,45 @@ const DEV_SERVER_URL = process.env.KIR_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 const isDev = !app.isPackaged && process.argv.includes('--dev')
 
 let win: BrowserWindow | null = null
+
+/** One step is a 1.2x change; the clamp keeps the two fixed bars usable. */
+const ZOOM_STEP = 0.5
+const ZOOM_MIN = -2.5
+const ZOOM_MAX = 3
+
+function zoomBy(contents: WebContents, delta: number): void {
+  const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, contents.getZoomLevel() + delta))
+  contents.setZoomLevel(next)
+}
+
+/**
+ * Zoom is handled here rather than left to the default menu. The menu's zoom-in
+ * accelerator is Ctrl+Plus, which needs Shift on most layouts, so Ctrl+= (what
+ * people actually press) did nothing while Ctrl+- worked. preventDefault also
+ * stops the menu accelerator, so each press applies exactly one step.
+ */
+function attachZoomShortcuts(contents: WebContents): void {
+  contents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.alt) return
+    if (!input.control && !input.meta) return
+
+    const zoomIn = input.code === 'Equal' || input.code === 'NumpadAdd' || input.key === '+'
+    const zoomOut = input.code === 'Minus' || input.code === 'NumpadSubtract' || input.key === '-'
+    const reset = input.code === 'Digit0' || input.code === 'Numpad0'
+
+    if (zoomIn) zoomBy(contents, ZOOM_STEP)
+    else if (zoomOut) zoomBy(contents, -ZOOM_STEP)
+    else if (reset) contents.setZoomLevel(0)
+    else return
+
+    event.preventDefault()
+  })
+
+  // Ctrl + wheel reports the intent but leaves the zoom to us.
+  contents.on('zoom-changed', (_event, direction) => {
+    zoomBy(contents, direction === 'in' ? ZOOM_STEP : -ZOOM_STEP)
+  })
+}
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -31,6 +70,8 @@ function createWindow(): void {
       spellcheck: false,
     },
   })
+
+  attachZoomShortcuts(win.webContents)
 
   win.once('ready-to-show', () => win?.show())
   win.on('closed', () => {
