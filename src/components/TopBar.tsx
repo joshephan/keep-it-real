@@ -7,6 +7,7 @@ import { ghostButton, iconButton, segButton } from '../ui/primitives'
 import { newDraft } from '../state/reducer'
 import { useLayoutMode } from '../hooks/useLayoutMode'
 import { WindowControls } from './WindowControls'
+import appIcon from '../../build/icon.png'
 
 interface Props {
   onPrev: () => void
@@ -58,7 +59,15 @@ export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
           whiteSpace: 'nowrap',
         }}
       >
-        <div style={{ width: 11, height: 11, borderRadius: '50%', background: C.accent }} />
+        {/* The same icon the installer and the taskbar use, so the window
+            introduces itself with the app's own mark. */}
+        <img
+          src={appIcon}
+          alt=""
+          width={20}
+          height={20}
+          style={{ flex: '0 0 auto', borderRadius: 5, display: 'block' }}
+        />
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Keep It Real</span>
           {!layout.compact && (
