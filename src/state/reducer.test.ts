@@ -242,6 +242,35 @@ describe('categories', () => {
     const single = { ...withItems([]), cats: [{ id: 'work', name: null, color: '#B5442E' }] }
     expect(reducer(single, { type: 'removeCategory', id: 'work' }).cats).toHaveLength(1)
   })
+
+  describe('reordering', () => {
+    const ids = (s: State): string[] => s.cats.map((c) => c.id)
+    const base = withItems([plan]) // work, health, life, study, etc
+
+    it('drags a category down to a later position', () => {
+      const s = reducer(base, { type: 'moveCategory', from: 0, to: 2 })
+      expect(ids(s)).toEqual(['health', 'life', 'work', 'study', 'etc'])
+    })
+
+    it('drags a category up to an earlier position', () => {
+      const s = reducer(base, { type: 'moveCategory', from: 3, to: 1 })
+      expect(ids(s)).toEqual(['work', 'study', 'health', 'life', 'etc'])
+    })
+
+    it('keeps every category, and the items pointing at them', () => {
+      const s = reducer(base, { type: 'moveCategory', from: 4, to: 0 })
+      expect(s.cats).toHaveLength(base.cats.length)
+      expect(ids(s)[0]).toBe('etc')
+      expect(s.items[0].cat).toBe('work')
+    })
+
+    it('ignores a move that goes nowhere or off either end', () => {
+      // Arrow keys at the ends send exactly these, and must be no-ops.
+      expect(ids(reducer(base, { type: 'moveCategory', from: 2, to: 2 }))).toEqual(ids(base))
+      expect(ids(reducer(base, { type: 'moveCategory', from: 0, to: -1 }))).toEqual(ids(base))
+      expect(ids(reducer(base, { type: 'moveCategory', from: 4, to: 5 }))).toEqual(ids(base))
+    })
+  })
 })
 
 describe('two-stage delete', () => {
@@ -303,6 +332,46 @@ describe('hydration', () => {
     const s = reducer(initialState, { type: 'hydrate', payload: { ...stored, lang: null } })
     expect(s).toMatchObject({ lang: systemLang(), langPref: null })
     expect(reducer(s, { type: 'setLang', lang: 'ko' })).toMatchObject({ lang: 'ko', langPref: 'ko' })
+  })
+})
+
+describe('import', () => {
+  const incoming = {
+    version: 1 as const,
+    items: [{ ...plan, id: 'imported', cat: 'study' }],
+    cats: [{ id: 'study', name: null, color: '#A2761F' }],
+    lang: 'en' as const,
+    view: 'day' as const,
+    colScale: { ...defaultColScale(), day: 1.4 },
+    showDiff: false,
+    showWeekend: true,
+  }
+
+  it('replaces items, categories and settings with the file', () => {
+    const before = { ...withItems([plan]), view: 'year' as const, showDiff: true }
+    const s = reducer(before, { type: 'importState', payload: incoming })
+    expect(s.items.map((i) => i.id)).toEqual(['imported'])
+    expect(s.cats.map((c) => c.id)).toEqual(['study'])
+    expect(s).toMatchObject({ view: 'day', lang: 'en', langPref: 'en', showDiff: false })
+    expect(s.colScale.day).toBe(1.4)
+  })
+
+  it('clears filters and drafts that pointed at the replaced data', () => {
+    const before: State = {
+      ...withItems([plan]),
+      cat: 'work',
+      query: 'ship',
+      form: editDraft(plan),
+      axisPad: { past: 6, future: 6 },
+    }
+    const s = reducer(before, { type: 'importState', payload: incoming })
+    expect(s).toMatchObject({ cat: 'all', query: '', form: null, promote: null })
+    expect(s.axisPad).toMatchObject({ past: 0, future: 0 })
+  })
+
+  it('follows the desktop language when the file has none', () => {
+    const s = reducer(initialState, { type: 'importState', payload: { ...incoming, lang: null } })
+    expect(s).toMatchObject({ lang: systemLang(), langPref: null })
   })
 })
 

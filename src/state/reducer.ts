@@ -93,9 +93,46 @@ export type Action =
   | { type: 'setSettingsOpen'; open: boolean }
   | { type: 'addCategory'; category: Category }
   | { type: 'patchCategory'; id: CategoryId; patch: Partial<Omit<Category, 'id'>> }
+  /** Reorder by position: the list order is what the filter bar and picker show. */
+  | { type: 'moveCategory'; from: number; to: number }
   | { type: 'removeCategory'; id: CategoryId }
   | { type: 'loadSample'; items: Item[] }
+  /** A whole store read back from an exported file, replacing what is here. */
+  | { type: 'importState'; payload: PersistedState }
   | { type: 'resetAll' }
+
+/** The slice of the running state that is written to disk — and exported. */
+export function toPersisted(state: State): PersistedState {
+  return {
+    version: 1,
+    items: state.items,
+    cats: state.cats,
+    // Only a deliberate pick is stored, so an untouched install keeps following
+    // the desktop language even if that changes later.
+    lang: state.langPref,
+    view: state.view,
+    colScale: state.colScale,
+    showDiff: state.showDiff,
+    showWeekend: state.showWeekend,
+  }
+}
+
+/** Puts a persisted store on screen. Shared by first load and by import. */
+function applyPersisted(state: State, p: PersistedState): State {
+  return {
+    ...state,
+    hydrated: true,
+    items: p.items,
+    cats: p.cats.length ? p.cats : defaultCategories(),
+    // A store with no language in it keeps following the desktop.
+    lang: p.lang ?? systemLang(),
+    langPref: p.lang,
+    view: p.view,
+    colScale: p.colScale,
+    showDiff: p.showDiff,
+    showWeekend: p.showWeekend,
+  }
+}
 
 /** A draft is saveable when it has a title, a note, or both. */
 export function hasContent(draft: Pick<FormDraft, 'title' | 'note'>): boolean {
@@ -159,20 +196,21 @@ export function reducer(state: State, action: Action): State {
     case 'hydrate': {
       const p = action.payload
       if (!p) return { ...state, hydrated: true }
-      return {
-        ...state,
-        hydrated: true,
-        items: p.items,
-        cats: p.cats.length ? p.cats : defaultCategories(),
-        // A store with no language in it keeps following the desktop.
-        lang: p.lang ?? systemLang(),
-        langPref: p.lang,
-        view: p.view,
-        colScale: p.colScale,
-        showDiff: p.showDiff,
-        showWeekend: p.showWeekend,
-      }
+      return applyPersisted(state, p)
     }
+
+    case 'importState':
+      return {
+        ...applyPersisted(state, action.payload),
+        // The file may have been written on another machine, with categories
+        // this one has never seen: any filter or half-typed draft pointing at
+        // the old set would now be dangling, so both are dropped.
+        cat: 'all',
+        query: '',
+        form: null,
+        promote: null,
+        axisPad: NO_PAD,
+      }
 
     case 'setView':
       // Column scale changes completely, and the timeline recentres on today,
@@ -373,6 +411,15 @@ export function reducer(state: State, action: Action): State {
         ...state,
         cats: state.cats.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)),
       }
+
+    case 'moveCategory': {
+      const { from, to } = action
+      const last = state.cats.length - 1
+      if (from === to || from < 0 || to < 0 || from > last || to > last) return state
+      const cats = [...state.cats]
+      cats.splice(to, 0, ...cats.splice(from, 1))
+      return { ...state, cats }
+    }
 
     case 'removeCategory': {
       // Never leave the app with zero categories to assign items to.

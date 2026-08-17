@@ -10,6 +10,17 @@ export interface AutostartState {
   enabled: boolean
 }
 
+/** Results of the two native file dialogs, kept flat so both ends agree. */
+export type BackupSaveResult =
+  | { status: 'saved'; path: string }
+  | { status: 'canceled' }
+  | { status: 'failed' }
+
+export type BackupOpenResult =
+  | { status: 'opened'; text: string; name: string }
+  | { status: 'canceled' }
+  | { status: 'failed' }
+
 interface KeepItRealApi {
   isElectron: true
   load: () => Promise<unknown | null>
@@ -21,6 +32,11 @@ interface KeepItRealApi {
   autostart?: {
     get: () => Promise<AutostartState>
     set: (enabled: boolean) => Promise<AutostartState>
+  }
+  /** Also added later: the browser fallback covers a preload without it. */
+  backup?: {
+    save: (json: string, suggestedName: string) => Promise<BackupSaveResult>
+    open: () => Promise<BackupOpenResult>
   }
 }
 
@@ -79,7 +95,12 @@ function normalizeColScale(raw: unknown): ColScale {
   return out
 }
 
-function normalize(raw: unknown): PersistedState | null {
+/**
+ * Turns anything that parsed as JSON into a state this version can run on, or
+ * null if there was no object at all. Exported because an imported backup has
+ * to survive exactly the same field-by-field vetting as the store file.
+ */
+export function normalize(raw: unknown): PersistedState | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const items = Array.isArray(o.items)

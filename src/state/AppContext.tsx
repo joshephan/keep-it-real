@@ -8,7 +8,7 @@ import {
   type Dispatch,
   type ReactNode,
 } from 'react'
-import { initialState, reducer, type Action, type State } from './reducer'
+import { initialState, reducer, toPersisted, type Action, type State } from './reducer'
 import { loadState, onExternalChange, saveState } from '../lib/storage'
 import { strings, type Strings } from '../i18n'
 import { todayISO } from '../lib/date'
@@ -54,20 +54,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!state.hydrated) return
     const handle = setTimeout(() => {
-      void saveState({
-        version: 1,
-        items: state.items,
-        cats: state.cats,
-        // Only a deliberate pick is stored, so an untouched install keeps
-        // following the desktop language even if that changes later.
-        lang: state.langPref,
-        view: state.view,
-        colScale: state.colScale,
-        showDiff: state.showDiff,
-        showWeekend: state.showWeekend,
-      })
+      void saveState(toPersisted(state))
     }, SAVE_DEBOUNCE_MS)
     return () => clearTimeout(handle)
+    // Every field `toPersisted` reads is listed, so the closure it captures can
+    // never hold a stale copy of anything that actually gets written.
   }, [
     state.hydrated,
     state.items,

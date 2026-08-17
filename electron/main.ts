@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, session, shell, type WebContents } from 'e
 import path from 'node:path'
 import { loadState, saveState, storePath, watchStore } from './store'
 import { getAutostart, setAutostart } from './autostart'
+import { openBackup, saveBackup } from './backup'
 
 // scripts/dev.mjs passes --dev and the port Vite actually bound to; every other
 // launch loads the built bundle from disk.
@@ -129,6 +130,10 @@ if (!gotLock) {
     ipcMain.handle('kir:store-path', () => storePath())
     ipcMain.handle('kir:autostart-get', () => getAutostart())
     ipcMain.handle('kir:autostart-set', (_event, enabled: boolean) => setAutostart(enabled === true))
+    ipcMain.handle('kir:backup-save', (_event, json: string, name: string) =>
+      saveBackup(win, String(json), String(name)),
+    )
+    ipcMain.handle('kir:backup-open', () => openBackup(win))
     ipcMain.on('kir:window', (_event, action: string) => {
       if (!win) return
       if (action === 'minimize') win.minimize()
