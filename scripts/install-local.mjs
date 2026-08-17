@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url'
 /**
  * Builds the app for the current OS and installs it on this machine.
  *
- *   node scripts/install-local.mjs               빌드 후 설치
+ *   node scripts/install-local.mjs               빌드 후 설치 (이미 있으면 제자리 갱신)
+ *   node scripts/install-local.mjs --full        설치 프로그램으로 새로 설치
  *   node scripts/install-local.mjs --skip-build  이미 만든 결과물로 설치만
  *   node scripts/install-local.mjs --uninstall   설치된 앱 제거
  *   node scripts/install-local.mjs --dry-run     무엇을 할지 출력만 하고 끝
@@ -26,6 +27,7 @@ const args = new Set(process.argv.slice(2))
 const skipBuild = args.has('--skip-build')
 const uninstall = args.has('--uninstall')
 const dryRun = args.has('--dry-run')
+const forceFull = args.has('--full')
 
 const log = (msg) => console.log(msg)
 const fail = (msg) => {
@@ -80,7 +82,56 @@ const dataDir = () => {
 
 const windowsInstallDir = () => path.join(process.env.LOCALAPPDATA ?? '', 'Programs', APP_NAME)
 
+/** Blocking sleep, so the whole script can stay synchronous. */
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+function isRunning() {
+  const result = spawnSync('tasklist', ['/FI', `IMAGENAME eq ${APP_NAME}.exe`, '/NH'], {
+    encoding: 'utf8',
+  })
+  return (result.stdout ?? '').includes(`${APP_NAME}.exe`)
+}
+
+function closeRunningApp() {
+  if (!isRunning()) return
+  act('실행 중인 앱 종료 (파일을 덮어써야 합니다)', () => {
+    spawnSync('taskkill', ['/IM', `${APP_NAME}.exe`], { stdio: 'ignore' })
+    for (let i = 0; i < 10 && isRunning(); i++) sleep(300)
+    if (isRunning()) spawnSync('taskkill', ['/IM', `${APP_NAME}.exe`, '/F', '/T'], { stdio: 'ignore' })
+  })
+}
+
+/**
+ * Re-running the NSIS installer removes the old installation before laying down
+ * the new one, and that drops the taskbar pin along with it. When the app is
+ * already installed, copy the freshly built files over it instead: the exe path
+ * and every shortcut stay exactly where they were, so pins survive.
+ */
+function updateWindowsInPlace(dir) {
+  if (!skipBuild) run('npm', ['run', 'dist:dir'])
+  const source = path.join(RELEASE_DIR, 'win-unpacked')
+  if (!fs.existsSync(source) && !dryRun) fail('release/win-unpacked 을 찾지 못했습니다.')
+
+  log(`\n[install-local] 기존 설치를 제자리에서 갱신합니다: ${dir}`)
+  closeRunningApp()
+  act('새 파일 덮어쓰기', () => fs.cpSync(source, dir, { recursive: true, force: true }))
+
+  log(dryRun ? '\n갱신 계획 (실제로 바뀐 것은 없습니다)' : '\n갱신 완료')
+  log(`  앱          ${path.join(dir, `${APP_NAME}.exe`)}`)
+  log('  바로가기    그대로 유지 (작업 표시줄 고정 포함)')
+  log('  새로 설치   npm run install:local -- --full')
+  log(`  데이터      ${dataDir()}`)
+}
+
 function installWindows() {
+  const dir = windowsInstallDir()
+  if (!forceFull && fs.existsSync(path.join(dir, `${APP_NAME}.exe`))) {
+    updateWindowsInPlace(dir)
+    return
+  }
+
   if (!skipBuild) run('npm', ['run', 'dist:win'])
   const installer = findArtifact(/-win-.*\.exe$/i)
   if (!installer) fail('release 폴더에서 Windows 설치 파일을 찾지 못했습니다.')
@@ -92,7 +143,6 @@ function installWindows() {
     if (result.status !== 0) fail(`설치 프로그램이 ${result.status} 로 종료했습니다.`)
   })
 
-  const dir = windowsInstallDir()
   log(dryRun ? '\n설치 계획 (실제로 바뀐 것은 없습니다)' : '\n설치 완료')
   log(`  앱          ${path.join(dir, `${APP_NAME}.exe`)}`)
   log(`  바로가기    시작 메뉴, 바탕화면`)
