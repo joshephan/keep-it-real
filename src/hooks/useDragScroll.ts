@@ -39,10 +39,16 @@ export function useDragScroll(scrollerRef: RefObject<HTMLDivElement | null>) {
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      // Left button only, and never steal a press aimed at a control.
+      // Any fresh press ends the previous gesture's click suppression, even one
+      // this handler goes on to ignore — otherwise a pan followed by a click on
+      // a bar would swallow that click.
+      drag.current = idle()
+
+      // Left button only, and never steal a press aimed at a control, or at a
+      // bar, which pans nothing and drags itself instead.
       if (e.button !== 0 || e.pointerType !== 'mouse') return
       const target = e.target as HTMLElement
-      if (target.closest('button, input, textarea, select, a')) return
+      if (target.closest('button, input, textarea, select, a, [data-bar]')) return
 
       const scroller = scrollerRef.current
       if (!scroller) return

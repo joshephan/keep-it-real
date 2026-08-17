@@ -9,6 +9,7 @@ import { findCategory } from '../lib/categories'
 import { displayTitle, stampText } from '../lib/item'
 import { editDraft, newDraft, type Action } from '../state/reducer'
 import { useDragScroll } from '../hooks/useDragScroll'
+import { useBarDrag, type BarDragHandlers, type BarPreview } from '../hooks/useBarDrag'
 import type { Strings } from '../i18n'
 
 interface Props {
@@ -42,9 +43,29 @@ export function Timeline({ axis, scrollerRef }: Props) {
 
   const { dragging, didDrag, handlers: dragHandlers } = useDragScroll(scrollerRef)
 
+  const {
+    preview,
+    handlers: barHandlers,
+    didDragBar,
+  } = useBarDrag(axis, (id, start, end) => dispatch({ type: 'moveItem', id, start, end }))
+
+  /** Everything a bar needs to take part in the drag gesture. */
+  const barDrag = (item: Item) => ({
+    drag: barHandlers(item),
+    preview: preview?.id === item.id ? preview : null,
+    colW: axis.colW,
+    suppressClick: () => didDrag() || didDragBar(),
+  })
+
+  /** True while the plan, or the actual it was promoted into, is being dragged. */
+  const dragsThisPair = (plan: Item): boolean =>
+    !!preview && (preview.id === plan.id || preview.id === plan.actualId)
+
   // Vertical wheel scrolls the timeline horizontally, unless the lane under the
   // pointer has its own overflow to consume.
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // Ctrl + wheel is a zoom gesture, not a pan.
+    if (e.ctrlKey || e.metaKey) return
     if (e.deltaX !== 0 || e.deltaY === 0) return
     const lane = (e.target as HTMLElement).closest('[data-lane]') as HTMLElement | null
     if (!e.shiftKey && lane && lane.scrollHeight > lane.clientHeight) return
@@ -57,7 +78,7 @@ export function Timeline({ axis, scrollerRef }: Props) {
       ref={scrollerRef}
       onWheel={onWheel}
       {...dragHandlers}
-      className={dragging ? 'kir-dragging' : undefined}
+      className={dragging || preview ? 'kir-dragging' : undefined}
       style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', background: C.surface }}
     >
       <div
@@ -107,7 +128,7 @@ export function Timeline({ axis, scrollerRef }: Props) {
                 color={colorOf(box.item.cat)}
                 dispatch={dispatch}
                 t={t}
-                didDrag={didDrag}
+                {...barDrag(box.item)}
               />
             ))}
           </div>
@@ -135,16 +156,20 @@ export function Timeline({ axis, scrollerRef }: Props) {
             />
             <TodayLine x={todayX} />
             {state.showDiff &&
-              planLayout.boxes.map((box) => (
-                <DriftMarker
-                  key={`${box.item.id}-drift`}
-                  box={box}
-                  axis={axis}
-                  items={state.items}
-                  dim={!matches(box.item)}
-                  t={t}
-                />
-              ))}
+              planLayout.boxes.map((box) =>
+                // Either half of a pair being dragged would leave this drawn
+                // against dates that no longer apply, so it sits the drag out.
+                dragsThisPair(box.item) ? null : (
+                  <DriftMarker
+                    key={`${box.item.id}-drift`}
+                    box={box}
+                    axis={axis}
+                    items={state.items}
+                    dim={!matches(box.item)}
+                    t={t}
+                  />
+                ),
+              )}
             {planLayout.boxes.map((box) => (
               <PlanBar
                 key={box.item.id}
@@ -154,7 +179,7 @@ export function Timeline({ axis, scrollerRef }: Props) {
                 dispatch={dispatch}
                 t={t}
                 today={today}
-                didDrag={didDrag}
+                {...barDrag(box.item)}
               />
             ))}
           </div>
@@ -191,9 +216,12 @@ function ColumnHeader({ axis, todayIndex }: { axis: Axis; todayIndex: number }) 
               flexDirection: 'column',
               justifyContent: 'center',
               gap: 2,
-              padding: '0 12px',
+              padding: axis.colW < 96 ? '0 8px' : '0 12px',
               borderRight: `1px solid ${C.grid}`,
               background: isToday ? C.todayTint : 'transparent',
+              // Narrow columns clip their label rather than bleeding into the
+              // next one.
+              overflow: 'hidden',
             }}
           >
             <span
@@ -203,6 +231,8 @@ function ColumnHeader({ axis, todayIndex }: { axis: Axis; todayIndex: number }) 
                 letterSpacing: '-0.01em',
                 color: isToday ? C.accent : C.text,
                 whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
               {col.label}
@@ -277,28 +307,60 @@ function TodayLine({ x }: { x: number }) {
   )
 }
 
+/** The drag gesture's half of a bar's props, handed over by `barDrag`. */
+interface DragProps {
+  drag: BarDragHandlers
+  /** Non-null only while this very bar is being dragged. */
+  preview: BarPreview | null
+  colW: number
+  suppressClick: () => boolean
+}
+
+/**
+ * A bar being dragged is drawn at the column it would land on, lifted above its
+ * neighbours. The item itself is untouched until the pointer is released.
+ */
+function dragStyle(preview: BarPreview | null, colW: number, resting: string) {
+  if (!preview) return { cursor: 'grab' as const, boxShadow: resting }
+  return {
+    cursor: 'grabbing' as const,
+    transform: `translateX(${preview.cols * colW}px)`,
+    zIndex: 5,
+    boxShadow: SHADOW.barDrag,
+  }
+}
+
+/** The date stamp, reading ahead to where the drag would drop the item. */
+function previewStamp(item: Item, preview: BarPreview | null): string {
+  return stampText(preview ? { ...item, start: preview.start, end: preview.end } : item)
+}
+
 function ActualBar({
   box,
   dim,
   color,
   dispatch,
   t,
-  didDrag,
-}: {
+  drag,
+  preview,
+  colW,
+  suppressClick,
+}: DragProps & {
   box: Box
   dim: boolean
   color: string
   dispatch: Dispatch<Action>
   t: Strings
-  didDrag: () => boolean
 }) {
   const item = box.item
   const label = displayTitle(item, t.untitled)
   return (
     <div
+      data-bar
+      {...drag}
       onClick={(e) => {
         e.stopPropagation()
-        if (didDrag()) return
+        if (suppressClick()) return
         dispatch({ type: 'openForm', draft: editDraft(item) })
       }}
       title={label}
@@ -314,10 +376,9 @@ function ActualBar({
         display: 'flex',
         alignItems: 'center',
         padding: '0 11px',
-        cursor: 'pointer',
         opacity: dim ? 0.2 : 1,
-        boxShadow: SHADOW.bar,
         overflow: 'hidden',
+        ...dragStyle(preview, colW, SHADOW.bar),
       }}
     >
       <span
@@ -341,7 +402,7 @@ function ActualBar({
           paddingLeft: 8,
         }}
       >
-        {stampText(item)}
+        {previewStamp(item, preview)}
         {item.sourceId ? '  ↑' : ''}
       </span>
     </div>
@@ -355,23 +416,27 @@ function PlanBar({
   dispatch,
   t,
   today,
-  didDrag,
-}: {
+  drag,
+  preview,
+  colW,
+  suppressClick,
+}: DragProps & {
   box: Box
   dim: boolean
   color: string
   dispatch: Dispatch<Action>
   t: Strings
   today: string
-  didDrag: () => boolean
 }) {
   const item = box.item
   const label = displayTitle(item, t.untitled)
   return (
     <div
+      data-bar
+      {...drag}
       onClick={(e) => {
         e.stopPropagation()
-        if (didDrag()) return
+        if (suppressClick()) return
         dispatch({ type: 'openForm', draft: editDraft(item) })
       }}
       title={label}
@@ -382,16 +447,18 @@ function PlanBar({
         top: LANE_TOP + box.lane * ROW_PITCH,
         height: BAR_H,
         borderRadius: 8,
-        background: `${color}14`,
+        // A dragged plan bar needs to read against the actual bars it passes
+        // over, so the translucent fill goes solid for the duration.
+        background: preview ? C.surface : `${color}14`,
         color,
         border: `1.5px dashed ${color}99`,
         display: 'flex',
         alignItems: 'center',
         gap: 6,
         padding: '0 9px',
-        cursor: 'pointer',
         opacity: dim ? 0.2 : 1,
         overflow: 'hidden',
+        ...dragStyle(preview, colW, 'none'),
       }}
     >
       <span
@@ -408,7 +475,7 @@ function PlanBar({
         {label}
       </span>
       <span style={{ fontFamily: MONO, fontSize: 9.5, opacity: 0.7, whiteSpace: 'nowrap' }}>
-        {stampText(item)}
+        {previewStamp(item, preview)}
       </span>
       {item.done ? (
         <span
