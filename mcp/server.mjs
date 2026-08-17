@@ -27,6 +27,16 @@ const INSTRUCTIONS = [
   `JSON file (${storePath()}); there is no account and no server.`,
 ].join(' ')
 
+// Hosts collect stderr as this server's log, so one line up front answers the
+// only question worth asking when nothing shows up: which file is it editing?
+// Sandboxed hosts can hand a process a different %APPDATA% than the app has.
+try {
+  const { size } = await fs.stat(storePath())
+  console.error(`[keep-it-real mcp] store: ${storePath()} (${size} bytes)`)
+} catch {
+  console.error(`[keep-it-real mcp] store: ${storePath()} (no file there yet)`)
+}
+
 function send(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`)
 }

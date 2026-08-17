@@ -200,22 +200,41 @@ claude mcp add --scope user keep-it-real -- node ~/keep-it-real/mcp/server.mjs
 `--scope user` 는 어느 폴더에서 Claude 를 열든 쓸 수 있게 합니다. 이 저장소 안에서 작업할
 때는 함께 들어 있는 [.mcp.json](.mcp.json) 을 처음 한 번 승인하는 것으로도 됩니다.
 
-Claude Desktop 은 설정 파일(`claude_desktop_config.json`)에 직접 적습니다.
+Claude Desktop 은 `claude_desktop_config.json` 에 직접 적습니다. 설정 파일은 여기 있습니다.
+
+| 설치 형태 | 경로 |
+|---|---|
+| Windows (일반 설치) | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Windows (Microsoft Store) | `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json` |
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 
 ```json
 {
   "mcpServers": {
     "keep-it-real": {
-      "command": "node",
-      "args": ["C:\\path\\to\\keep-it-real\\mcp\\server.mjs"]
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": ["C:\\path\\to\\keep-it-real\\mcp\\server.mjs"],
+      "env": {
+        "KIR_STORE_PATH": "C:\\Users\\<이름>\\AppData\\Roaming\\Keep It Real\\keep-it-real.json"
+      }
     }
   }
 }
 ```
 
-잘 붙었는지는 `claude mcp get keep-it-real` 로 확인합니다. 직접 띄워 보고 싶다면
+Store 버전은 앱이 샌드박스 안에서 돌기 때문에, 거기서 띄운 서버는 `%APPDATA%` 가 패키지
+전용 폴더로 우회되어 엉뚱한 파일을 잡을 수 있습니다. `KIR_STORE_PATH` 로 실제 경로를
+못박아 두면 그럴 일이 없습니다. `command` 도 `node` 대신 `node.exe` 의 전체 경로를 적는
+편이 안전합니다. 앱 환경의 `PATH` 는 터미널의 그것과 다릅니다.
+
+**고친 뒤에는 Claude Desktop 을 완전히 종료했다 켜야 합니다.** 창만 닫으면 트레이에 남아
+설정을 다시 읽지 않습니다.
+
+잘 붙었는지는 Claude Code 라면 `claude mcp get keep-it-real`, Desktop 이라면 로그 폴더의
+`mcp-server-keep-it-real.log` 로 확인합니다. 서버는 켜질 때 자기가 어느 파일을 잡았는지
+로그에 한 줄 남기므로, 일정이 안 보이면 그 경로부터 보면 됩니다. 직접 띄워 보고 싶다면
 `npm run mcp` 로 실행되며, 표준 입출력으로 JSON-RPC 를 주고받는 서버라 터미널에서는
-아무것도 출력하지 않는 것이 정상입니다.
+그 한 줄 말고는 아무것도 출력하지 않는 것이 정상입니다.
 
 ### 할 수 있는 것
 
