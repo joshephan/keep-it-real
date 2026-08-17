@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { initialState, reducer, type Action, type State } from './reducer'
-import { loadState, saveState } from '../lib/storage'
+import { loadState, onExternalChange, saveState } from '../lib/storage'
 import { strings, type Strings } from '../i18n'
 import { todayISO } from '../lib/date'
 
@@ -39,6 +39,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [])
+
+  // The MCP server edits the same file. Reading it back keeps the window honest
+  // and stops the next save from burying whatever was written there.
+  useEffect(() =>
+    onExternalChange(() => {
+      void loadState().then((payload) => {
+        if (payload) dispatch({ type: 'hydrate', payload })
+      })
+    }),
+  [])
 
   // Persist after every mutating action (debounced), never before hydration.
   useEffect(() => {

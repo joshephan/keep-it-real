@@ -16,6 +16,8 @@ interface KeepItRealApi {
   save: (data: unknown) => Promise<void>
   storePath: () => Promise<string>
   window: (action: 'minimize' | 'toggle-maximize' | 'close') => void
+  /** Added after the first release, so a preload from an older build may lack it. */
+  onExternalChange?: (listener: () => void) => () => void
   autostart?: {
     get: () => Promise<AutostartState>
     set: (enabled: boolean) => Promise<AutostartState>
@@ -110,6 +112,15 @@ export async function loadState(): Promise<PersistedState | null> {
   } catch {
     return null
   }
+}
+
+/**
+ * Calls back when the store file was written from outside this window — the MCP
+ * server, say. Returns an unsubscribe; in the browser build there is nothing to
+ * watch, so it is a no-op.
+ */
+export function onExternalChange(listener: () => void): () => void {
+  return bridge()?.onExternalChange?.(listener) ?? (() => {})
 }
 
 export async function saveState(state: PersistedState): Promise<void> {

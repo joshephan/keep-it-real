@@ -175,6 +175,77 @@ JSON 파일 하나입니다. 백업이나 다른 컴퓨터로 옮기기는 이 �
 `~/.config/autostart/keep-it-real.desktop` 에 기록됩니다. 앱에서 **모든 데이터 초기화** 를
 해도 이 설정은 남고, OS 설정에서 직접 꺼도 앱 화면에 그대로 반영됩니다.
 
+## Claude 에서 쓰기 (MCP)
+
+`mcp/server.mjs` 는 이 앱의 저장 파일을 그대로 읽고 쓰는 [MCP](https://modelcontextprotocol.io)
+서버입니다. 등록해 두면 Claude 에게 "이번 주 계획 보여줘", "금요일에 치과 일정 넣어줘",
+"보고서 계획 어제 끝낸 걸로 올려줘" 처럼 말하는 것으로 일정을 넣고 고칠 수 있습니다.
+
+앱과 똑같이 로컬 전용입니다. 네트워크로 나가는 것은 없고, Claude 가 켠 프로세스가 같은
+컴퓨터의 JSON 파일 하나를 여닫을 뿐입니다. 외부 의존성도 없어서 `npm install` 없이
+Node 만 있으면 실행됩니다.
+
+### 등록하기
+
+Claude Code 라면 한 줄입니다. 경로는 이 저장소를 받아 둔 위치로 바꾸세요.
+
+```bash
+# Windows
+claude mcp add --scope user keep-it-real -- node "C:\path\to\keep-it-real\mcp\server.mjs"
+
+# macOS / Linux
+claude mcp add --scope user keep-it-real -- node ~/keep-it-real/mcp/server.mjs
+```
+
+`--scope user` 는 어느 폴더에서 Claude 를 열든 쓸 수 있게 합니다. 이 저장소 안에서 작업할
+때는 함께 들어 있는 [.mcp.json](.mcp.json) 을 처음 한 번 승인하는 것으로도 됩니다.
+
+Claude Desktop 은 설정 파일(`claude_desktop_config.json`)에 직접 적습니다.
+
+```json
+{
+  "mcpServers": {
+    "keep-it-real": {
+      "command": "node",
+      "args": ["C:\\path\\to\\keep-it-real\\mcp\\server.mjs"]
+    }
+  }
+}
+```
+
+잘 붙었는지는 `claude mcp get keep-it-real` 로 확인합니다. 직접 띄워 보고 싶다면
+`npm run mcp` 로 실행되며, 표준 입출력으로 JSON-RPC 를 주고받는 서버라 터미널에서는
+아무것도 출력하지 않는 것이 정상입니다.
+
+### 할 수 있는 것
+
+| 도구 | 하는 일 |
+|---|---|
+| `list_categories` | 카테고리 id, 이름, 색 |
+| `list_items` | 일정 조회. 트랙 / 기간 / 카테고리 / 검색어로 거르고, 휴지통은 기본으로 제외 |
+| `create_item` | 계획이나 실제에 일정 추가 (기간, 시간 지정 가능) |
+| `update_item` | 제목, 메모, 카테고리, 날짜, 시간 수정. 시간에 `null` 을 주면 하루 종일로 |
+| `delete_item` | 휴지통으로. `permanent: true` 면 완전 삭제 |
+| `restore_item` | 휴지통에서 복원 |
+| `promote_plan` | 계획을 실제로 올리기. 실제 날짜를 주면 그 날짜로, 안 주면 계획한 날짜로 |
+| `unpromote_plan` | 승격 되돌리기 |
+
+앱에서 지키는 규칙은 여기서도 똑같이 지켜집니다. 승격은 계획 원본의 날짜를 건드리지 않고,
+삭제는 두 단계이며, 제목과 메모가 둘 다 비었거나 종료일이 시작일보다 빠른 일정은 저장되지
+않습니다. 잘못된 값은 조용히 고쳐지지 않고 무엇이 잘못됐는지 그대로 돌려줍니다.
+
+`permanent: true` 로 지운 것과 승격 되돌리기로 사라진 실제 기록은 되돌릴 수 없습니다.
+평소에는 그냥 `delete_item` 만 쓰면 휴지통에 남습니다.
+
+### 앱을 켜 둔 채로 써도 됩니다
+
+앱이 실행 중일 때 Claude 가 일정을 넣으면 화면에 바로 반영됩니다. 앱이 저장 파일을 지켜보다
+바깥에서 바뀐 것을 발견하면 다시 읽어 들이기 때문에, 열어 둔 창이 예전 내용으로 덮어쓰는
+일은 없습니다.
+
+저장 파일을 다른 곳에 두었다면 `KIR_STORE_PATH` 환경 변수로 알려 주세요. 지정하지 않으면
+위 [저장 위치](#내-기록은-어디에-저장되나요) 의 기본 경로를 씁니다.
+
 ## 문제가 생기면
 
 **`npm install` 은 됐는데 실행할 때 `Cannot find module '@rolldown/binding-...'` 같은 오류가
@@ -215,7 +286,8 @@ npm run build       # 렌더러 + 메인 프로세스 빌드
 
 ```text
 scripts/     개발 실행 스크립트
-electron/    메인 프로세스: 창 생성, 파일 저장, 자동 실행
+mcp/         저장 파일을 읽고 쓰는 MCP 서버 (의존성 없음)
+electron/    메인 프로세스: 창 생성, 파일 저장 + 외부 변경 감시, 자동 실행
 src/
   state/     모든 규칙이 모여 있는 리듀서와 저장 처리
   lib/       날짜 계산, 시간축, 막대 배치, 카테고리

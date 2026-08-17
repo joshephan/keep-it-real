@@ -13,6 +13,7 @@
     "build:renderer": "vite build",
     "build": "npm run build:renderer && npm run build:main",
     "start": "npm run build && node scripts/electron.mjs",
+    "mcp": "node mcp/server.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
@@ -30,7 +31,8 @@
     "calendar",
     "planner",
     "local-first",
-    "offline"
+    "offline",
+    "mcp"
   ],
   "devDependencies": {
     "@types/react": "^19.2.18",

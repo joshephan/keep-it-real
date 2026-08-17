@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, session, shell, type WebContents } from 'electron'
 import path from 'node:path'
-import { loadState, saveState, storePath } from './store'
+import { loadState, saveState, storePath, watchStore } from './store'
 import { getAutostart, setAutostart } from './autostart'
 
 // scripts/dev.mjs passes --dev and the port Vite actually bound to; every other
@@ -137,6 +137,10 @@ if (!gotLock) {
     })
 
     createWindow()
+
+    // The MCP server writes the same file from outside; the open window follows
+    // along instead of overwriting it.
+    watchStore(() => win?.webContents.send('kir:external-change'))
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
