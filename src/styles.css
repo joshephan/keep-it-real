@@ -1,0 +1,85 @@
+/* Fonts are bundled, not fetched — the app never touches the network. */
+@import '@fontsource/instrument-sans/400.css';
+@import '@fontsource/instrument-sans/500.css';
+@import '@fontsource/instrument-sans/600.css';
+@import '@fontsource/instrument-sans/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #eef0f2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  color: #1a1d21;
+  -webkit-font-smoothing: antialiased;
+  /* Desktop app chrome: no text selection or rubber-banding. */
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c9ced4;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* While panning the timeline, every cell and bar shows the grab cursor. */
+.kir-dragging,
+.kir-dragging * {
+  cursor: grabbing !important;
+}
+
+/* Horizontal strips that scroll without showing a scrollbar (filter pills). */
+.kir-hscroll {
+  scrollbar-width: none;
+}
+
+.kir-hscroll::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+}
+
+@keyframes kirFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
