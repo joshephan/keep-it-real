@@ -3,13 +3,15 @@ import { createAxis } from './axis'
 import { layoutBars } from './layout'
 import type { Item } from '../types'
 
-const item = (id: string, start: string, end: string): Item => ({
+const item = (id: string, start: string, end: string, startTime: string | null = null): Item => ({
   id,
   kind: 'plan',
   title: id,
   cat: 'work',
   start,
   end,
+  startTime,
+  endTime: null,
   note: '',
   done: false,
   actualId: null,
@@ -54,6 +56,18 @@ describe('lane packing', () => {
     )
     expect(laneCount).toBe(1)
     expect(boxes.every((b) => b.lane === 0)).toBe(true)
+  })
+
+  it('orders same-day bars by their start time, all-day first', () => {
+    const { boxes } = layoutBars(
+      [
+        item('afternoon', '2026-08-17', '2026-08-17', '14:00'),
+        item('allday', '2026-08-17', '2026-08-17'),
+        item('morning', '2026-08-17', '2026-08-17', '09:00'),
+      ],
+      axis,
+    )
+    expect(boxes.map((b) => b.item.id)).toEqual(['allday', 'morning', 'afternoon'])
   })
 
   it('gives single-day bars a readable minimum width', () => {

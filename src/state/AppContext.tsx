@@ -49,12 +49,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         items: state.items,
         cats: state.cats,
         lang: state.lang,
+        view: state.view,
         showDiff: state.showDiff,
         showWeekend: state.showWeekend,
       })
     }, SAVE_DEBOUNCE_MS)
     return () => clearTimeout(handle)
-  }, [state.hydrated, state.items, state.cats, state.lang, state.showDiff, state.showWeekend])
+  }, [
+    state.hydrated,
+    state.items,
+    state.cats,
+    state.lang,
+    state.view,
+    state.showDiff,
+    state.showWeekend,
+  ])
 
   const t = useMemo(() => strings(state.lang), [state.lang])
   const value = useMemo<AppContextValue>(() => ({ state, dispatch, t, today }), [state, t, today])

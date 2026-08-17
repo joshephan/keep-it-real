@@ -25,7 +25,9 @@ export function layoutBars(list: Item[], axis: Axis): { boxes: Box[]; laneCount:
       const width = Math.max(MIN_BAR_WIDTH, Math.min(axis.total, r) - Math.max(0, l) - 8)
       return { item, left, width, lane: 0 }
     })
-    .sort((a, b) => a.left - b.left)
+    // Same column: the timed items read top-to-bottom in clock order, and
+    // all-day items sit above them.
+    .sort((a, b) => a.left - b.left || (a.item.startTime ?? '').localeCompare(b.item.startTime ?? ''))
 
   const laneEnds: number[] = []
   for (const box of boxes) {

@@ -1,6 +1,7 @@
 /**
- * Date helpers. Everything is a local-midnight `YYYY-MM-DD` string; no UTC, no
- * time-of-day, so ISO strings also sort lexicographically.
+ * Date helpers. Every date is a local-midnight `YYYY-MM-DD` string; no UTC, so
+ * ISO strings also sort lexicographically. Times, where an item has them, are
+ * plain `HH:MM` strings on the same day and sort the same way.
  */
 
 export const pad = (n: number): string => String(n).padStart(2, '0')
@@ -76,9 +77,16 @@ export function isoWeek(s: string): number {
 export const minDate = (a: string, b: string): string => (b < a ? b : a)
 export const maxDate = (a: string, b: string): string => (b > a ? b : a)
 
+/** `07.20` — the month-day stamp shown on bars. */
+export const dayText = (date: string): string => date.slice(5).replace('-', '.')
+
 /** `07.20` for a single day, `07.20–07.28` for a range. */
 export function rangeText(start: string, end?: string | null): string {
-  const s = start.slice(5).replace('-', '.')
+  const s = dayText(start)
   if (!end || end === start) return s
-  return `${s}–${end.slice(5).replace('-', '.')}`
+  return `${s}–${dayText(end)}`
 }
+
+/** `HH:MM`, the only time shape stored. Anything else is dropped on load. */
+export const isTime = (s: unknown): s is string =>
+  typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s)

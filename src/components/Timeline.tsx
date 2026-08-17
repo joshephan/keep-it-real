@@ -4,9 +4,9 @@ import { BAR_H, C, LANE_TOP, MONO, ROW_PITCH, SHADOW } from '../tokens'
 import { useApp } from '../state/AppContext'
 import type { Axis } from '../lib/axis'
 import { layoutBars, laneHeight, type Box } from '../lib/layout'
-import { diffDays, rangeText } from '../lib/date'
+import { diffDays } from '../lib/date'
 import { findCategory } from '../lib/categories'
-import { displayTitle } from '../lib/item'
+import { displayTitle, stampText } from '../lib/item'
 import { editDraft, newDraft, type Action } from '../state/reducer'
 import { useDragScroll } from '../hooks/useDragScroll'
 import type { Strings } from '../i18n'
@@ -338,7 +338,7 @@ function ActualBar({
           paddingLeft: 8,
         }}
       >
-        {rangeText(item.start, item.end)}
+        {stampText(item)}
         {item.sourceId ? '  ↑' : ''}
       </span>
     </div>
@@ -405,7 +405,7 @@ function PlanBar({
         {label}
       </span>
       <span style={{ fontFamily: MONO, fontSize: 9.5, opacity: 0.7, whiteSpace: 'nowrap' }}>
-        {rangeText(item.start, item.end)}
+        {stampText(item)}
       </span>
       {item.done ? (
         <span
@@ -431,7 +431,7 @@ function PlanBar({
               draft: {
                 id: item.id,
                 name: label,
-                planRange: rangeText(item.start, item.end),
+                planRange: stampText(item),
                 planEnd: item.end || item.start,
                 start: today,
                 end: today,

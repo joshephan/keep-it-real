@@ -19,10 +19,11 @@ export interface State {
   items: Item[]
   cats: Category[]
   lang: Lang
+  /** Day / week / month zoom, remembered across restarts. */
+  view: ViewMode
   showDiff: boolean
   showWeekend: boolean
-  /** Ephemeral UI state — never persisted. */
-  view: ViewMode
+  /** Ephemeral UI state, never persisted. */
   query: string
   cat: CatFilter
   form: FormDraft | null
@@ -87,11 +88,37 @@ function normalizeEnd(start: string, end: string, single: boolean): string {
   return diffDays(start, end) < 0 ? start : end
 }
 
+/** What the time inputs are seeded with the first time they are opened. */
+export const DEFAULT_START_TIME = '09:00'
+export const DEFAULT_END_TIME = '10:00'
+
+/**
+ * Within one day an end time can never precede the start time; across days the
+ * dates carry the ordering, so any pair is legal.
+ */
+function normalizeEndTime(draft: FormDraft): string {
+  if (!draft.single || !draft.startTime || !draft.endTime) return draft.endTime
+  return draft.endTime < draft.startTime ? draft.startTime : draft.endTime
+}
+
 export function newDraft(kind: Track, date: string, cat: CategoryId): FormDraft {
-  return { id: null, kind, title: '', cat, start: date, end: date, note: '', single: true }
+  return {
+    id: null,
+    kind,
+    title: '',
+    cat,
+    start: date,
+    end: date,
+    note: '',
+    single: true,
+    timed: false,
+    startTime: DEFAULT_START_TIME,
+    endTime: DEFAULT_END_TIME,
+  }
 }
 
 export function editDraft(item: Item): FormDraft {
+  const timed = !!(item.startTime || item.endTime)
   return {
     id: item.id,
     kind: item.kind,
@@ -101,6 +128,9 @@ export function editDraft(item: Item): FormDraft {
     end: item.end || item.start,
     note: item.note ?? '',
     single: !item.end || item.end === item.start,
+    timed,
+    startTime: item.startTime ?? (timed ? '' : DEFAULT_START_TIME),
+    endTime: item.endTime ?? (timed ? '' : DEFAULT_END_TIME),
   }
 }
 
@@ -115,6 +145,7 @@ export function reducer(state: State, action: Action): State {
         items: p.items,
         cats: p.cats.length ? p.cats : defaultCategories(),
         lang: p.lang,
+        view: p.view,
         showDiff: p.showDiff,
         showWeekend: p.showWeekend,
       }
@@ -140,6 +171,8 @@ export function reducer(state: State, action: Action): State {
       const next = { ...state.form, ...action.patch }
       // Single-day items keep end pinned to start.
       if (next.single) next.end = next.start
+      // …and their end time pinned no earlier than the start time.
+      next.endTime = normalizeEndTime(next)
       return { ...state, form: next }
     }
     case 'closeForm':
@@ -152,11 +185,25 @@ export function reducer(state: State, action: Action): State {
       // with neither, there is nothing to save and the modal just closes.
       if (!hasContent(f)) return { ...state, form: null }
       const end = normalizeEnd(f.start, f.end, f.single)
+      // Turning the time off discards the clock entirely: the item goes back to
+      // being an all-day one, which is what an empty time input means too.
+      const startTime = f.timed && f.startTime ? f.startTime : null
+      const endTime = f.timed && f.endTime ? normalizeEndTime(f) : null
 
       if (f.id) {
         const items = state.items.map((i) =>
           i.id === f.id
-            ? { ...i, title: f.title.trim(), cat: f.cat, start: f.start, end, note: f.note, kind: f.kind }
+            ? {
+                ...i,
+                title: f.title.trim(),
+                cat: f.cat,
+                start: f.start,
+                end,
+                startTime,
+                endTime,
+                note: f.note,
+                kind: f.kind,
+              }
             : i,
         )
         return { ...state, items, form: null }
@@ -169,6 +216,8 @@ export function reducer(state: State, action: Action): State {
         cat: f.cat,
         start: f.start,
         end,
+        startTime,
+        endTime,
         note: f.note,
         done: false,
         actualId: null,
@@ -226,6 +275,9 @@ export function reducer(state: State, action: Action): State {
         cat: plan.cat,
         start: pr.start,
         end,
+        // The promote modal moves dates only; the plan's clock rides along.
+        startTime: plan.startTime,
+        endTime: plan.endTime,
         note: plan.note,
         done: false,
         actualId: null,

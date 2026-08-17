@@ -126,6 +126,21 @@ export const dateInputStyle: CSSProperties = {
   fontFamily: MONO,
 }
 
+/** Sits on the baseline of a field row — the single/range and time toggles. */
+export const rowButton: CSSProperties = {
+  height: 38,
+  padding: '0 14px',
+  borderRadius: 8,
+  border: `1px solid ${C.borderStrong}`,
+  background: C.surface,
+  color: C.text2,
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  flex: '0 0 auto',
+}
+
 export const fieldLabelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,

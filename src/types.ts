@@ -15,7 +15,11 @@ export interface Category {
   color: string
 }
 
-/** A single record on either track. `YYYY-MM-DD` strings everywhere — no time zones, no clock. */
+/**
+ * A single record on either track. Dates are local `YYYY-MM-DD` strings — no
+ * time zones. Times are optional `HH:MM` strings: an item without them is an
+ * all-day item, which stays the default.
+ */
 export interface Item {
   id: string
   kind: Track
@@ -24,6 +28,10 @@ export interface Item {
   start: string
   /** Equal to `start` for single-day items. */
   end: string
+  /** `HH:MM` on the start date, or null for an all-day item. */
+  startTime: string | null
+  /** `HH:MM` on the end date, or null when no end time was given. */
+  endTime: string | null
   note: string
   /** Plan only: this plan has been promoted into the actual track. */
   done: boolean
@@ -45,6 +53,11 @@ export interface FormDraft {
   end: string
   note: string
   single: boolean
+  /** Off by default — the time inputs only appear once the user asks for them. */
+  timed: boolean
+  /** Kept while `timed` is off so toggling back restores what was typed. */
+  startTime: string
+  endTime: string
 }
 
 /** Draft held by the promote modal. The plan record itself is never touched here. */
@@ -62,6 +75,7 @@ export interface PersistedState {
   items: Item[]
   cats: Category[]
   lang: Lang
+  view: ViewMode
   showDiff: boolean
   showWeekend: boolean
 }

@@ -9,6 +9,8 @@ const plan: Item = {
   cat: 'work',
   start: '2026-07-06',
   end: '2026-08-14',
+  startTime: null,
+  endTime: null,
   note: '',
   done: false,
   actualId: null,
@@ -53,6 +55,51 @@ describe('item editing', () => {
     expect(s.form?.end).toBe('2026-08-17')
   })
 
+  it('saves an all-day item when the time was never asked for', () => {
+    let s = reducer(withItems([]), { type: 'openForm', draft: newDraft('plan', '2026-08-17', 'work') })
+    expect(s.form?.timed).toBe(false)
+    s = reducer(s, { type: 'patchForm', patch: { title: '산책' } })
+    s = reducer(s, { type: 'saveForm', newId: 'new1' })
+    expect(s.items[0]).toMatchObject({ startTime: null, endTime: null })
+  })
+
+  it('stores the times once the draft is timed', () => {
+    let s = reducer(withItems([]), { type: 'openForm', draft: newDraft('plan', '2026-08-17', 'work') })
+    s = reducer(s, {
+      type: 'patchForm',
+      patch: { title: '치과', timed: true, startTime: '14:00', endTime: '15:30' },
+    })
+    s = reducer(s, { type: 'saveForm', newId: 'new1' })
+    expect(s.items[0]).toMatchObject({ startTime: '14:00', endTime: '15:30' })
+  })
+
+  it('pulls a single-day end time along when the start time passes it', () => {
+    let s = reducer(withItems([]), { type: 'openForm', draft: newDraft('plan', '2026-08-17', 'work') })
+    s = reducer(s, { type: 'patchForm', patch: { timed: true, startTime: '09:00', endTime: '10:00' } })
+    s = reducer(s, { type: 'patchForm', patch: { startTime: '16:00' } })
+    expect(s.form?.endTime).toBe('16:00')
+  })
+
+  it('leaves the times alone across a multi-day range', () => {
+    let s = reducer(withItems([]), { type: 'openForm', draft: newDraft('plan', '2026-08-17', 'work') })
+    s = reducer(s, {
+      type: 'patchForm',
+      patch: { single: false, end: '2026-08-19', timed: true, startTime: '22:00', endTime: '07:00' },
+    })
+    expect(s.form?.endTime).toBe('07:00')
+  })
+
+  it('drops the times again when the time is switched back off', () => {
+    let s = reducer(withItems([{ ...plan, startTime: '14:00', endTime: '15:30' }]), {
+      type: 'openForm',
+      draft: editDraft({ ...plan, startTime: '14:00', endTime: '15:30' }),
+    })
+    expect(s.form?.timed).toBe(true)
+    s = reducer(s, { type: 'patchForm', patch: { timed: false } })
+    s = reducer(s, { type: 'saveForm', newId: 'unused' })
+    expect(s.items[0]).toMatchObject({ startTime: null, endTime: null })
+  })
+
   it('snaps an end date that precedes the start', () => {
     let s = reducer(withItems([plan]), { type: 'openForm', draft: editDraft(plan) })
     s = reducer(s, { type: 'patchForm', patch: { single: false, end: '2026-06-01' } })
@@ -84,6 +131,16 @@ describe('promotion', () => {
 
     expect(a).toMatchObject({ kind: 'actual', start: '2026-07-20', end: '2026-07-28', sourceId: 'p1' })
     expect(a.title).toBe(plan.title)
+  })
+
+  it('carries the plan times onto the copy', () => {
+    const timed = { ...plan, startTime: '09:30', endTime: '11:00' }
+    let s = reducer(withItems([timed]), {
+      type: 'openPromote',
+      draft: { id: 'p1', name: timed.title, planRange: '', planEnd: '2026-08-14', start: '2026-07-20', end: '2026-07-20' },
+    })
+    s = reducer(s, { type: 'confirmPromote', newId: 'a1' })
+    expect(s.items.find((i) => i.id === 'a1')).toMatchObject({ startTime: '09:30', endTime: '11:00' })
   })
 
   it('pulls the end along when the start moves past it', () => {
@@ -164,5 +221,35 @@ describe('two-stage delete', () => {
     const items = [plan, { ...plan, id: 'p2', deleted: true, deletedAt: '2026-08-17' }]
     expect(reducer(withItems(items), { type: 'purge', id: 'p2' }).items).toHaveLength(1)
     expect(reducer(withItems(items), { type: 'emptyTrash' }).items.map((i) => i.id)).toEqual(['p1'])
+  })
+})
+
+describe('hydration', () => {
+  const stored = {
+    version: 1 as const,
+    items: [],
+    cats: [],
+    lang: 'en' as const,
+    view: 'month' as const,
+    showDiff: false,
+    showWeekend: false,
+  }
+
+  it('restores the saved view, language and display settings', () => {
+    const s = reducer(initialState, { type: 'hydrate', payload: stored })
+    expect(s).toMatchObject({ hydrated: true, view: 'month', lang: 'en', showDiff: false, showWeekend: false })
+  })
+
+  it('keeps the chosen view after switching it', () => {
+    const s = reducer(reducer(initialState, { type: 'hydrate', payload: stored }), {
+      type: 'setView',
+      view: 'day',
+    })
+    expect(s.view).toBe('day')
+  })
+
+  it('falls back to defaults when there is nothing stored yet', () => {
+    const s = reducer(initialState, { type: 'hydrate', payload: null })
+    expect(s).toMatchObject({ hydrated: true, view: 'week', lang: 'ko' })
   })
 })

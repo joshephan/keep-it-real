@@ -1,5 +1,6 @@
 import type { Category, Item, PersistedState } from '../types'
 import { defaultCategories } from './categories'
+import { isTime } from './date'
 
 const WEB_KEY = 'keepitreal.v1'
 
@@ -41,6 +42,9 @@ function normalizeItem(raw: unknown): Item | null {
     cat: typeof o.cat === 'string' && o.cat ? o.cat : 'etc',
     start: o.start,
     end: typeof o.end === 'string' && o.end ? o.end : o.start,
+    // Stores written before times existed have neither key: all-day, as before.
+    startTime: isTime(o.startTime) ? o.startTime : null,
+    endTime: isTime(o.endTime) ? o.endTime : null,
     note: typeof o.note === 'string' ? o.note : '',
     done: o.done === true,
     actualId: typeof o.actualId === 'string' ? o.actualId : null,
@@ -76,6 +80,8 @@ function normalize(raw: unknown): PersistedState | null {
     items,
     cats: cats.length ? cats : defaultCategories(),
     lang: o.lang === 'en' ? 'en' : 'ko',
+    // Stores written before the view was remembered fall back to the default.
+    view: o.view === 'day' || o.view === 'month' ? o.view : 'week',
     showDiff: o.showDiff !== false,
     showWeekend: o.showWeekend !== false,
   }

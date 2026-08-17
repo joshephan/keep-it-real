@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { C } from '../tokens'
 import { useApp } from '../state/AppContext'
-import { hasContent } from '../state/reducer'
+import { DEFAULT_END_TIME, DEFAULT_START_TIME, hasContent } from '../state/reducer'
 import { catLabel } from '../lib/categories'
 import { Modal } from '../ui/Overlay'
 import {
@@ -13,6 +13,7 @@ import {
   neutralButton,
   pill,
   primaryButton,
+  rowButton,
 } from '../ui/primitives'
 import { uid } from '../lib/uid'
 import { todayISO } from '../lib/date'
@@ -132,23 +133,52 @@ export function ItemModal() {
             </Field>
             <button
               onClick={() => patch({ single: !form.single, end: form.single ? form.end : form.start })}
-              style={{
-                height: 38,
-                padding: '0 14px',
-                borderRadius: 8,
-                border: `1px solid ${C.borderStrong}`,
-                background: C.surface,
-                color: C.text2,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                flex: '0 0 auto',
-              }}
+              style={rowButton}
             >
               {form.single ? t.single : t.span}
             </button>
           </div>
+
+          {/* Time is opt-in: until the user asks for it an item stays all-day. */}
+          {form.timed ? (
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end' }}>
+              <Field label={t.fStartTime}>
+                <input
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) => patch({ startTime: e.target.value })}
+                  style={dateInputStyle}
+                />
+              </Field>
+              <Field label={t.fEndTime}>
+                <input
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) => patch({ endTime: e.target.value })}
+                  style={dateInputStyle}
+                />
+              </Field>
+              <button onClick={() => patch({ timed: false })} style={rowButton}>
+                {t.timeRemove}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={() =>
+                  patch({
+                    timed: true,
+                    startTime: form.startTime || DEFAULT_START_TIME,
+                    endTime: form.endTime || DEFAULT_END_TIME,
+                  })
+                }
+                style={{ ...rowButton, height: 32 }}
+              >
+                {t.timeAdd}
+              </button>
+              <span style={{ fontSize: 11.5, color: C.text5 }}>{t.allDay}</span>
+            </div>
+          )}
 
           <Field label={t.fNote}>
             <textarea

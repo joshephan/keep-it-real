@@ -2,8 +2,7 @@ import { C, MONO } from '../tokens'
 import { useApp } from '../state/AppContext'
 import { Drawer } from '../ui/Overlay'
 import { iconButton } from '../ui/primitives'
-import { rangeText } from '../lib/date'
-import { displayTitle } from '../lib/item'
+import { displayTitle, stampText } from '../lib/item'
 import { useConfirm } from '../hooks/useConfirm'
 
 /** Stage two of the two-stage delete: this is the only place records die. */
@@ -84,7 +83,7 @@ export function TrashDrawer() {
               </span>
             </div>
             <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.text4 }}>
-              {rangeText(item.start, item.end)}
+              {stampText(item)}
               {'  ·  '}
               {t.deletedAt(item.deletedAt ?? '')}
             </span>
