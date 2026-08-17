@@ -30,14 +30,31 @@ export interface Axis {
   /** First and last date the axis covers. */
   rangeStart: string
   rangeEnd: string
-  cols: Column[]
+  /** How many columns the range covers. */
+  count: number
+  /** The column at `i`, built on demand rather than held in an array. */
+  colAt: (i: number) => Column
   /** Width of one column in pixels, after the user's width setting. */
   colW: number
   /** Total pixel width of the track. */
   total: number
   /** Column index for a date, clamped into the axis range. */
   colIndex: (date: string) => number
+  /** True once the range has reached the first / last date the app draws. */
+  atMin: boolean
+  atMax: boolean
 }
+
+/**
+ * The two ends of the timeline. Scrolling grows the axis, but not for ever:
+ * past these dates there is nothing worth planning against, and the column
+ * count stops being something the renderer can carry.
+ */
+export const MIN_DATE = '1900-01-01'
+export const MAX_DATE = '2100-12-31'
+
+export const clampDate = (date: string): string =>
+  date < MIN_DATE ? MIN_DATE : date > MAX_DATE ? MAX_DATE : date
 
 /** Extra months the axis has grown by, past and future, from scrolling or jumping. */
 export interface AxisPad {
@@ -68,8 +85,8 @@ export const EXPAND_MONTHS: Record<ViewMode, number> = {
 
 /**
  * The visible time range is derived from the data, a window around today, and
- * however far the user has scrolled beyond it. There is no fixed edge: reaching
- * either end grows the range instead of stopping.
+ * however far the user has scrolled beyond it. Reaching either end grows the
+ * range rather than stopping the scroll, up to `MIN_DATE` / `MAX_DATE`.
  */
 export function axisRange(
   items: Item[],
@@ -78,97 +95,109 @@ export function axisRange(
   extra: AxisPad = NO_PAD,
 ): { start: string; end: string } {
   const base = BASE_PAD[view]
-  let lo = addMonths(today, -(base.past + extra.past))
-  let hi = addMonths(today, base.future + extra.future)
+  let lo = addMonths(clampDate(today), -(base.past + extra.past))
+  let hi = addMonths(clampDate(today), base.future + extra.future)
   for (const it of items) {
     if (it.deleted) continue
     lo = minDate(lo, it.start)
     hi = maxDate(hi, it.end || it.start)
   }
-  return { start: startOfMonth(lo), end: endOfMonth(hi) }
+  // Both edges are month aligned first, then clamped: the limits are themselves
+  // a month start and a month end, so the alignment survives the clamp.
+  return { start: maxDate(startOfMonth(lo), MIN_DATE), end: minDate(endOfMonth(hi), MAX_DATE) }
 }
 
 /**
  * Extra padding needed for `date` to fall inside the axis, or null when it
- * already does. Range edges are month aligned, so months are the unit.
+ * already does. Range edges are month aligned, so months are the unit. A date
+ * outside the limits reveals nothing new — the nearest edge is as far as the
+ * axis goes — so it reports null and the caller scrolls to that edge.
  */
 export function padToReveal(axis: Axis, current: AxisPad, date: string): AxisPad | null {
-  if (date >= axis.rangeStart && date <= axis.rangeEnd) return null
-  if (date < axis.rangeStart) {
-    return { ...current, past: current.past + diffMonths(date, axis.rangeStart) + 1 }
+  const target = clampDate(date)
+  if (target >= axis.rangeStart && target <= axis.rangeEnd) return null
+  if (target < axis.rangeStart) {
+    return { ...current, past: current.past + diffMonths(target, axis.rangeStart) + 1 }
   }
-  return { ...current, future: current.future + diffMonths(axis.rangeEnd, date) + 1 }
+  return { ...current, future: current.future + diffMonths(axis.rangeEnd, target) + 1 }
 }
 
-function buildColumns(view: ViewMode, start: string, end: string, lang: Lang): Column[] {
+const DAY_NAMES: Record<Lang, string[]> = {
+  ko: ['월', '화', '수', '목', '금', '토', '일'],
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+}
+
+const MONTH_NAMES: Record<Lang, string[]> = {
+  ko: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+  en: [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ],
+}
+
+/** How many columns of this view it takes to cover `start`…`end`. */
+function columnCount(view: ViewMode, start: string, end: string): number {
+  if (view === 'day') return diffDays(start, end) + 1
+  if (view === 'week') return Math.floor(diffDays(startOfWeek(start), end) / 7) + 1
+  if (view === 'year') return parseISO(end).getFullYear() - parseISO(start).getFullYear() + 1
+  return diffMonths(start, end) + 1
+}
+
+/**
+ * The column at `i`, built on demand. Nothing holds them all: at day scale a
+ * range stretched back to 1900 is tens of thousands of columns, and only the
+ * few dozen under the viewport are ever worth the allocation.
+ */
+function columnAt(view: ViewMode, start: string, lang: Lang, i: number): Column {
   const ko = lang === 'ko'
-  const out: Column[] = []
 
   if (view === 'day') {
-    const n = diffDays(start, end) + 1
-    const names = ko ? ['월', '화', '수', '목', '금', '토', '일'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    for (let i = 0; i < n; i++) {
-      const date = addDays(start, i)
-      const d = parseISO(date)
-      const wd = weekdayIndex(date)
-      out.push({
-        date,
-        label: `${d.getMonth() + 1}${ko ? '월 ' : '/'}${d.getDate()}${ko ? '일' : ''}`,
-        sub: names[wd],
-        weekend: wd > 4,
-      })
+    const date = addDays(start, i)
+    const d = parseISO(date)
+    const wd = weekdayIndex(date)
+    return {
+      date,
+      label: `${d.getMonth() + 1}${ko ? '월 ' : '/'}${d.getDate()}${ko ? '일' : ''}`,
+      sub: DAY_NAMES[lang][wd],
+      weekend: wd > 4,
     }
-    return out
   }
 
   if (view === 'week') {
-    let date = startOfWeek(start)
-    while (diffDays(date, end) >= 0) {
-      const a = parseISO(date)
-      const b = parseISO(addDays(date, 6))
-      out.push({
-        date,
-        label: `${a.getMonth() + 1}${ko ? '월 ' : '/'}${a.getDate()} – ${b.getMonth() + 1}/${b.getDate()}`,
-        sub: `W${pad(isoWeek(date))}`,
-        weekend: false,
-      })
-      date = addDays(date, 7)
+    const date = addDays(startOfWeek(start), i * 7)
+    const a = parseISO(date)
+    const b = parseISO(addDays(date, 6))
+    return {
+      date,
+      label: `${a.getMonth() + 1}${ko ? '월 ' : '/'}${a.getDate()} – ${b.getMonth() + 1}/${b.getDate()}`,
+      sub: `W${pad(isoWeek(date))}`,
+      weekend: false,
     }
-    return out
   }
 
   if (view === 'year') {
-    const first = parseISO(start).getFullYear()
-    const last = parseISO(end).getFullYear()
-    for (let y = first; y <= last; y++) {
-      out.push({ date: `${y}-01-01`, label: ko ? `${y}년` : String(y), sub: '', weekend: false })
-    }
-    return out
+    const y = parseISO(start).getFullYear() + i
+    return { date: `${y}-01-01`, label: ko ? `${y}년` : String(y), sub: '', weekend: false }
   }
 
-  const months = ko
-    ? ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
-    : [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ]
   const a = parseISO(start)
-  const n = diffMonths(start, end) + 1
-  for (let i = 0; i < n; i++) {
-    const d = new Date(a.getFullYear(), a.getMonth() + i, 1)
-    out.push({ date: iso(d), label: months[d.getMonth()], sub: String(d.getFullYear()), weekend: false })
+  const d = new Date(a.getFullYear(), a.getMonth() + i, 1)
+  return {
+    date: iso(d),
+    label: MONTH_NAMES[lang][d.getMonth()],
+    sub: String(d.getFullYear()),
+    weekend: false,
   }
-  return out
 }
 
 export function createAxis(
@@ -180,7 +209,7 @@ export function createAxis(
   scale: number = COL_SCALE.default,
 ): Axis {
   const { start, end } = axisRange(items, today, view, extra)
-  const cols = buildColumns(view, start, end, lang)
+  const count = columnCount(view, start, end)
   // Whole pixels only: a fractional column width makes the grid lines shimmer
   // as the timeline scrolls.
   const colW = Math.round(COL_W[view] * clampColScale(scale))
@@ -194,10 +223,21 @@ export function createAxis(
     else if (view === 'week') idx = Math.floor(diffDays(startOfWeek(start), startOfWeek(s)) / 7)
     else if (view === 'year') idx = parseISO(s).getFullYear() - parseISO(start).getFullYear()
     else idx = diffMonths(start, s)
-    return Math.min(Math.max(idx, 0), Math.max(0, cols.length - 1))
+    return Math.min(Math.max(idx, 0), Math.max(0, count - 1))
   }
 
-  return { view, rangeStart: start, rangeEnd: end, cols, colW, total: cols.length * colW, colIndex }
+  return {
+    view,
+    rangeStart: start,
+    rangeEnd: end,
+    count,
+    colAt: (i) => columnAt(view, start, lang, i),
+    colW,
+    total: count * colW,
+    colIndex,
+    atMin: start <= MIN_DATE,
+    atMax: end >= MAX_DATE,
+  }
 }
 
 /**

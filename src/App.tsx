@@ -73,23 +73,24 @@ export default function App() {
     if (delta !== 0) el.scrollLeft += delta
   }, [axis, today])
 
-  // Reaching either end grows the range rather than stopping the scroll.
+  // Reaching either end grows the range rather than stopping the scroll — until
+  // the axis hits the first or last date the app draws, where it simply stops.
   useEffect(() => {
     const el = scrollerRef.current
     if (!el) return
     const onScroll = () => {
       if (expanding.current) return
-      if (el.scrollLeft < EDGE_TRIGGER) {
+      if (!axis.atMin && el.scrollLeft < EDGE_TRIGGER) {
         expanding.current = true
         dispatch({ type: 'expandAxis', direction: 'past' })
-      } else if (el.scrollLeft + el.clientWidth > el.scrollWidth - EDGE_TRIGGER) {
+      } else if (!axis.atMax && el.scrollLeft + el.clientWidth > el.scrollWidth - EDGE_TRIGGER) {
         expanding.current = true
         dispatch({ type: 'expandAxis', direction: 'future' })
       }
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [dispatch])
+  }, [dispatch, axis.atMin, axis.atMax])
 
   const goToDate = useCallback(
     (date: string) => {

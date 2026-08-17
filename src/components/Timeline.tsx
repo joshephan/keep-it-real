@@ -2,7 +2,7 @@ import { useMemo, type Dispatch, type RefObject } from 'react'
 import type { CategoryId, Item, Track } from '../types'
 import { BAR_H, C, LANE_TOP, MONO, ROW_PITCH, SHADOW } from '../tokens'
 import { useApp } from '../state/AppContext'
-import type { Axis } from '../lib/axis'
+import type { Axis, Column } from '../lib/axis'
 import { layoutBars, laneHeight, type Box } from '../lib/layout'
 import { diffDays } from '../lib/date'
 import { findCategory } from '../lib/categories'
@@ -10,11 +10,18 @@ import { displayTitle, stampText } from '../lib/item'
 import { editDraft, newDraft, type Action } from '../state/reducer'
 import { useDragScroll } from '../hooks/useDragScroll'
 import { useBarDrag, type BarDragHandlers, type BarPreview } from '../hooks/useBarDrag'
+import { useVisibleCols, type ColRange } from '../hooks/useVisibleCols'
 import type { Strings } from '../i18n'
 
 interface Props {
   axis: Axis
   scrollerRef: RefObject<HTMLDivElement | null>
+}
+
+/** A column paired with its index, which is what positions it. */
+interface PlacedColumn {
+  i: number
+  col: Column
 }
 
 export function Timeline({ axis, scrollerRef }: Props) {
@@ -27,6 +34,15 @@ export function Timeline({ axis, scrollerRef }: Props) {
       planLayout: layoutBars(visible.filter((i) => i.kind === 'plan'), axis),
     }
   }, [state.items, axis])
+
+  // Only the columns under the viewport are built and drawn; the track keeps
+  // its full width regardless, so scrolling and positions are unaffected.
+  const vis = useVisibleCols(scrollerRef, axis.colW, axis.count)
+  const cols = useMemo(() => {
+    const out: PlacedColumn[] = []
+    for (let i = vis.from; i < vis.to; i++) out.push({ i, col: axis.colAt(i) })
+    return out
+  }, [axis, vis.from, vis.to])
 
   const todayIndex = axis.colIndex(today)
   const todayX = todayIndex * axis.colW + (axis.view === 'day' ? axis.colW / 2 : 0)
@@ -61,6 +77,14 @@ export function Timeline({ axis, scrollerRef }: Props) {
   const dragsThisPair = (plan: Item): boolean =>
     !!preview && (preview.id === plan.id || preview.id === plan.actualId)
 
+  /**
+   * Bars outside the rendered window are skipped, except the one under the
+   * pointer: a drag moves it by a transform, so it has to survive the cull
+   * even once its resting position has scrolled away.
+   */
+  const onScreen = (box: Box): boolean =>
+    (box.left < vis.right && box.left + box.width > vis.left) || preview?.id === box.item.id
+
   // Vertical wheel scrolls the timeline horizontally, unless the lane under the
   // pointer has its own overflow to consume.
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -91,7 +115,7 @@ export function Timeline({ axis, scrollerRef }: Props) {
           position: 'relative',
         }}
       >
-        <ColumnHeader axis={axis} todayIndex={todayIndex} />
+        <ColumnHeader cols={cols} colW={axis.colW} todayIndex={todayIndex} />
 
         <div
           data-lane="actual"
@@ -112,7 +136,8 @@ export function Timeline({ axis, scrollerRef }: Props) {
             }}
           >
             <Cells
-              axis={axis}
+              cols={cols}
+              colW={axis.colW}
               kind="actual"
               showWeekend={state.showWeekend}
               dispatch={dispatch}
@@ -120,7 +145,7 @@ export function Timeline({ axis, scrollerRef }: Props) {
               didDrag={didDrag}
             />
             <TodayLine x={todayX} />
-            {actualLayout.boxes.map((box) => (
+            {actualLayout.boxes.filter(onScreen).map((box) => (
               <ActualBar
                 key={box.item.id}
                 box={box}
@@ -147,7 +172,8 @@ export function Timeline({ axis, scrollerRef }: Props) {
             }}
           >
             <Cells
-              axis={axis}
+              cols={cols}
+              colW={axis.colW}
               kind="plan"
               showWeekend={state.showWeekend}
               dispatch={dispatch}
@@ -166,11 +192,12 @@ export function Timeline({ axis, scrollerRef }: Props) {
                     axis={axis}
                     items={state.items}
                     dim={!matches(box.item)}
+                    vis={vis}
                     t={t}
                   />
                 ),
               )}
-            {planLayout.boxes.map((box) => (
+            {planLayout.boxes.filter(onScreen).map((box) => (
               <PlanBar
                 key={box.item.id}
                 box={box}
@@ -189,7 +216,15 @@ export function Timeline({ axis, scrollerRef }: Props) {
   )
 }
 
-function ColumnHeader({ axis, todayIndex }: { axis: Axis; todayIndex: number }) {
+function ColumnHeader({
+  cols,
+  colW,
+  todayIndex,
+}: {
+  cols: PlacedColumn[]
+  colW: number
+  todayIndex: number
+}) {
   return (
     <div
       style={{
@@ -201,22 +236,22 @@ function ColumnHeader({ axis, todayIndex }: { axis: Axis; todayIndex: number }) 
         position: 'relative',
       }}
     >
-      {axis.cols.map((col, i) => {
+      {cols.map(({ i, col }) => {
         const isToday = i === todayIndex
         return (
           <div
             key={col.date}
             style={{
               position: 'absolute',
-              left: i * axis.colW,
-              width: axis.colW,
+              left: i * colW,
+              width: colW,
               top: 0,
               bottom: 0,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
               gap: 2,
-              padding: axis.colW < 96 ? '0 8px' : '0 12px',
+              padding: colW < 96 ? '0 8px' : '0 12px',
               borderRight: `1px solid ${C.grid}`,
               background: isToday ? C.todayTint : 'transparent',
               // Narrow columns clip their label rather than bleeding into the
@@ -252,14 +287,16 @@ function ColumnHeader({ axis, todayIndex }: { axis: Axis; todayIndex: number }) 
 
 /** Click targets behind the bars: one per column, per lane. */
 function Cells({
-  axis,
+  cols,
+  colW,
   kind,
   showWeekend,
   dispatch,
   defaultCat,
   didDrag,
 }: {
-  axis: Axis
+  cols: PlacedColumn[]
+  colW: number
   kind: Track
   showWeekend: boolean
   dispatch: Dispatch<Action>
@@ -268,7 +305,7 @@ function Cells({
 }) {
   return (
     <>
-      {axis.cols.map((col, i) => (
+      {cols.map(({ i, col }) => (
         <div
           key={`${kind}-${col.date}`}
           onClick={() => {
@@ -279,8 +316,8 @@ function Cells({
             position: 'absolute',
             top: 0,
             bottom: 0,
-            left: i * axis.colW,
-            width: axis.colW,
+            left: i * colW,
+            width: colW,
             borderRight: `1px solid ${C.grid}`,
             background: showWeekend && col.weekend ? C.weekend : 'transparent',
             cursor: 'copy',
@@ -538,12 +575,14 @@ function DriftMarker({
   axis,
   items,
   dim,
+  vis,
   t,
 }: {
   box: Box
   axis: Axis
   items: Item[]
   dim: boolean
+  vis: ColRange
   t: Strings
 }) {
   const plan = box.item
@@ -558,6 +597,9 @@ function DriftMarker({
   const color = drift < 0 ? C.positive : C.accent
   const lo = Math.min(actualX, planX)
   const width = Math.max(2, Math.max(actualX, planX) - lo)
+  // A connector spans plan to actual, so it is culled on its own bounds rather
+  // than the plan bar's: either end can be on screen while the other is not.
+  if (lo > vis.right || lo + width < vis.left) return null
 
   return (
     <>

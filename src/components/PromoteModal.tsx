@@ -4,6 +4,7 @@ import { Modal } from '../ui/Overlay'
 import { Field, dateInputStyle, neutralButton } from '../ui/primitives'
 import { diffDays } from '../lib/date'
 import { uid } from '../lib/uid'
+import { clampDate, MAX_DATE, MIN_DATE } from '../lib/axis'
 
 /** 계획 → 실제. Copies the plan onto the actual track; the plan keeps its dates. */
 export function PromoteModal() {
@@ -60,8 +61,13 @@ export function PromoteModal() {
             <input
               type="date"
               value={pr.start}
+              min={MIN_DATE}
+              max={MAX_DATE}
               onChange={(e) =>
-                dispatch({ type: 'patchPromote', patch: { start: e.target.value || pr.start } })
+                dispatch({
+                  type: 'patchPromote',
+                  patch: { start: clampDate(e.target.value || pr.start) },
+                })
               }
               style={dateInputStyle}
             />
@@ -70,7 +76,11 @@ export function PromoteModal() {
             <input
               type="date"
               value={pr.end}
-              onChange={(e) => dispatch({ type: 'patchPromote', patch: { end: e.target.value || pr.end } })}
+              min={MIN_DATE}
+              max={MAX_DATE}
+              onChange={(e) =>
+                dispatch({ type: 'patchPromote', patch: { end: clampDate(e.target.value || pr.end) } })
+              }
               style={dateInputStyle}
             />
           </Field>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ViewMode } from '../types'
 import { C, MONO } from '../tokens'
 import { useApp } from '../state/AppContext'
+import { clampDate, MAX_DATE, MIN_DATE } from '../lib/axis'
 import { ghostButton, iconButton, segButton } from '../ui/primitives'
 import { newDraft } from '../state/reducer'
 import { useLayoutMode } from '../hooks/useLayoutMode'
@@ -78,17 +79,21 @@ export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
         ))}
       </div>
 
-      {/* Jump straight to a date; the axis grows to reach it if it is outside. */}
+      {/* Jump straight to a date; the axis grows to reach it if it is outside.
+          The picker is held to the same limits the axis has. */}
       <input
         type="date"
         value={jumpDate}
+        min={MIN_DATE}
+        max={MAX_DATE}
         title={t.goToDate}
         aria-label={t.goToDate}
         onChange={(e) => {
           const value = e.target.value
           if (!value) return
-          setJumpDate(value)
-          onGoToDate(value)
+          const date = clampDate(value)
+          setJumpDate(date)
+          onGoToDate(date)
         }}
         style={noDrag({
           flex: '0 0 auto',
@@ -117,7 +122,15 @@ export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
         <button onClick={onPrev} style={iconButton} aria-label="previous">
           ‹
         </button>
-        <button onClick={onToday} style={{ ...ghostButton, padding: '0 12px', color: C.text }}>
+        <button
+          // Snapping the axis back to today also snaps the date field back, so
+          // the two never disagree about where you are.
+          onClick={() => {
+            setJumpDate(today)
+            onToday()
+          }}
+          style={{ ...ghostButton, padding: '0 12px', color: C.text }}
+        >
           {t.today}
         </button>
         <button onClick={onNext} style={iconButton} aria-label="next">

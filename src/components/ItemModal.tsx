@@ -17,6 +17,7 @@ import {
 } from '../ui/primitives'
 import { uid } from '../lib/uid'
 import { todayISO } from '../lib/date'
+import { clampDate, MAX_DATE, MIN_DATE } from '../lib/axis'
 
 /**
  * The one item editor. Both calendars open this same component — the track
@@ -114,7 +115,9 @@ export function ItemModal() {
               <input
                 type="date"
                 value={form.start}
-                onChange={(e) => patch({ start: e.target.value || form.start })}
+                min={MIN_DATE}
+                max={MAX_DATE}
+                onChange={(e) => patch({ start: clampDate(e.target.value || form.start) })}
                 style={dateInputStyle}
               />
             </Field>
@@ -122,8 +125,10 @@ export function ItemModal() {
               <input
                 type="date"
                 value={form.end}
+                min={MIN_DATE}
+                max={MAX_DATE}
                 disabled={form.single}
-                onChange={(e) => patch({ end: e.target.value || form.end })}
+                onChange={(e) => patch({ end: clampDate(e.target.value || form.end) })}
                 style={{
                   ...dateInputStyle,
                   background: form.single ? '#F4F6F7' : C.surface,

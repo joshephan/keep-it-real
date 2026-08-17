@@ -83,7 +83,7 @@ export function useBarDrag(
         moved: false,
         startX: e.clientX,
         min: -axis.colIndex(item.start),
-        max: axis.cols.length - 1 - axis.colIndex(item.end || item.start),
+        max: axis.count - 1 - axis.colIndex(item.end || item.start),
       }
       // No pointer capture yet: taking it here would retarget the following
       // `click` and break a plain click on the bar. It is taken in the move

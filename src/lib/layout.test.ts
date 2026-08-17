@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createAxis, padToReveal, shiftByColumns } from './axis'
+import { createAxis, MAX_DATE, MIN_DATE, padToReveal, shiftByColumns } from './axis'
 import { layoutBars } from './layout'
 import { COL_SCALE, COL_W } from '../tokens'
 import type { Item } from '../types'
@@ -48,9 +48,34 @@ describe('axis', () => {
     expect(forward.rangeEnd).toBe('2027-10-31')
   })
 
+  it('stops growing at the first and last date the app draws', () => {
+    const back = createAxis('month', [], '2026-08-17', 'ko', { past: 5000, future: 0 })
+    expect(back.rangeStart).toBe(MIN_DATE)
+    expect(back.atMin).toBe(true)
+    expect(back.atMax).toBe(false)
+
+    const forward = createAxis('month', [], '2026-08-17', 'ko', { past: 0, future: 5000 })
+    expect(forward.rangeEnd).toBe(MAX_DATE)
+    expect(forward.atMax).toBe(true)
+  })
+
+  it('is not dragged past the limits by an out-of-range item', () => {
+    const wide = createAxis('year', [item('x', '1800-03-02', '3200-04-05')], '2026-08-17', 'ko')
+    expect(wide.rangeStart).toBe(MIN_DATE)
+    expect(wide.rangeEnd).toBe(MAX_DATE)
+    expect(wide.count).toBe(2100 - 1900 + 1)
+  })
+
+  it('reports no padding for a date beyond the limits', () => {
+    // Nothing further to reveal: the nearest edge is as far as the axis goes.
+    expect(padToReveal(axis, { past: 0, future: 0 }, '1850-01-01')).not.toBeNull()
+    const atEdge = createAxis('month', [], '2026-08-17', 'ko', { past: 5000, future: 0 })
+    expect(padToReveal(atEdge, { past: 5000, future: 0 }, '1700-01-01')).toBeNull()
+  })
+
   it('gives one column per year in year view', () => {
     const years = createAxis('year', [], '2026-08-17', 'ko')
-    expect(years.cols.map((c) => c.label)).toEqual([
+    expect(Array.from({ length: years.count }, (_, i) => years.colAt(i).label)).toEqual([
       '2023년',
       '2024년',
       '2025년',
@@ -75,7 +100,7 @@ describe('axis', () => {
   it('scales the column width, and the track total with it', () => {
     const wide = createAxis('day', [], '2026-08-17', 'ko', undefined, 1.5)
     expect(wide.colW).toBe(Math.round(COL_W.day * 1.5))
-    expect(wide.total).toBe(wide.cols.length * wide.colW)
+    expect(wide.total).toBe(wide.count * wide.colW)
     // Columns are unchanged, so a date still lands on the same one.
     expect(wide.colIndex('2026-08-17')).toBe(axis.colIndex('2026-08-17'))
   })
@@ -88,7 +113,24 @@ describe('axis', () => {
 
   it('clamps out-of-range dates onto the first and last column', () => {
     expect(axis.colIndex('2020-01-01')).toBe(0)
-    expect(axis.colIndex('2030-01-01')).toBe(axis.cols.length - 1)
+    expect(axis.colIndex('2030-01-01')).toBe(axis.count - 1)
+  })
+
+  it('builds columns on demand, matching what a full walk would give', () => {
+    // The axis never materialises its columns, so `colAt` is the only source.
+    expect(axis.count).toBe(123)
+    expect(axis.colAt(0).date).toBe('2026-07-01')
+    expect(axis.colAt(axis.count - 1).date).toBe('2026-10-31')
+    expect(axis.colAt(axis.colIndex('2026-08-17')).date).toBe('2026-08-17')
+
+    const weeks = createAxis('week', [], '2026-08-17', 'en')
+    expect(weeks.colAt(0).date).toBe('2026-06-01')
+    expect(weeks.colAt(1).date).toBe('2026-06-08')
+    // A week column is labelled by the Monday it starts on.
+    expect(weeks.colAt(weeks.colIndex('2026-08-19')).date).toBe('2026-08-17')
+
+    const months = createAxis('month', [], '2026-08-17', 'en')
+    expect(months.colAt(months.colIndex('2026-08-17')).label).toBe('August')
   })
 })
 
