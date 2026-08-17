@@ -135,15 +135,7 @@ export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
           gap: layout.tight ? 6 : 8,
         })}
       >
-        {/* Duplicated in Settings → Language, so it is the first thing to go. */}
-        {!layout.narrow && (
-          <button
-            onClick={() => dispatch({ type: 'setLang', lang: state.lang === 'ko' ? 'en' : 'ko' })}
-            style={{ ...ghostButton, padding: '0 10px', fontSize: 11, letterSpacing: '0.04em' }}
-          >
-            {state.lang === 'ko' ? 'KO' : 'EN'}
-          </button>
-        )}
+        {/* Language lives in Settings → Language, not up here. */}
         <button onClick={() => dispatch({ type: 'setTrashOpen', open: true })} style={ghostButton}>
           {t.trash}
           {trashCount ? ` ${trashCount}` : ''}

@@ -91,7 +91,8 @@ function normalize(raw: unknown): PersistedState | null {
     version: 1,
     items,
     cats: cats.length ? cats : defaultCategories(),
-    lang: o.lang === 'en' ? 'en' : 'ko',
+    // Absent (or unrecognised) means the user has never picked one.
+    lang: o.lang === 'en' || o.lang === 'ko' ? o.lang : null,
     // Stores written before the view was remembered fall back to the default.
     view: o.view === 'day' || o.view === 'month' || o.view === 'year' ? o.view : 'week',
     colScale: normalizeColScale(o.colScale),

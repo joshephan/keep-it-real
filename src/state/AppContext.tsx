@@ -48,7 +48,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         version: 1,
         items: state.items,
         cats: state.cats,
-        lang: state.lang,
+        // Only a deliberate pick is stored, so an untouched install keeps
+        // following the desktop language even if that changes later.
+        lang: state.langPref,
         view: state.view,
         colScale: state.colScale,
         showDiff: state.showDiff,
@@ -60,12 +62,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state.hydrated,
     state.items,
     state.cats,
-    state.lang,
+    state.langPref,
     state.view,
     state.colScale,
     state.showDiff,
     state.showWeekend,
   ])
+
+  // Keeps <html lang> matching what is actually on screen.
+  useEffect(() => {
+    document.documentElement.lang = state.lang
+  }, [state.lang])
 
   const t = useMemo(() => strings(state.lang), [state.lang])
   const value = useMemo<AppContextValue>(() => ({ state, dispatch, t, today }), [state, t, today])

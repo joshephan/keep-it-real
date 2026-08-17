@@ -14,6 +14,7 @@ import type {
 import { diffDays } from '../lib/date'
 import { defaultCategories } from '../lib/categories'
 import { EXPAND_MONTHS, NO_PAD, type AxisPad } from '../lib/axis'
+import { systemLang } from '../lib/locale'
 import { clampColScale, defaultColScale } from '../tokens'
 
 export interface State {
@@ -21,7 +22,10 @@ export interface State {
   hydrated: boolean
   items: Item[]
   cats: Category[]
+  /** The language in use: whatever was picked in Settings, or the desktop's. */
   lang: Lang
+  /** Only a deliberate pick is remembered; null keeps following the desktop. */
+  langPref: Lang | null
   /** Day / week / month / year zoom, remembered across restarts. */
   view: ViewMode
   /** Column width multiplier, kept per view and remembered across restarts. */
@@ -43,7 +47,8 @@ export const initialState: State = {
   hydrated: false,
   items: [],
   cats: defaultCategories(),
-  lang: 'ko',
+  lang: systemLang(),
+  langPref: null,
   showDiff: true,
   showWeekend: true,
   view: 'week',
@@ -159,7 +164,9 @@ export function reducer(state: State, action: Action): State {
         hydrated: true,
         items: p.items,
         cats: p.cats.length ? p.cats : defaultCategories(),
-        lang: p.lang,
+        // A store with no language in it keeps following the desktop.
+        lang: p.lang ?? systemLang(),
+        langPref: p.lang,
         view: p.view,
         colScale: p.colScale,
         showDiff: p.showDiff,
@@ -193,7 +200,7 @@ export function reducer(state: State, action: Action): State {
     case 'setAxisPad':
       return { ...state, axisPad: action.pad }
     case 'setLang':
-      return { ...state, lang: action.lang }
+      return { ...state, lang: action.lang, langPref: action.lang }
     case 'toggleDiff':
       return { ...state, showDiff: !state.showDiff }
     case 'toggleWeekend':

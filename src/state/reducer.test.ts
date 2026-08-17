@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { editDraft, initialState, newDraft, reducer, type State } from './reducer'
 import { COL_SCALE, defaultColScale } from '../tokens'
+import { systemLang } from '../lib/locale'
 import type { Item } from '../types'
 
 const plan: Item = {
@@ -295,7 +296,13 @@ describe('hydration', () => {
 
   it('falls back to defaults when there is nothing stored yet', () => {
     const s = reducer(initialState, { type: 'hydrate', payload: null })
-    expect(s).toMatchObject({ hydrated: true, view: 'week', lang: 'ko' })
+    expect(s).toMatchObject({ hydrated: true, view: 'week', lang: systemLang(), langPref: null })
+  })
+
+  it('follows the desktop language until one is picked in Settings', () => {
+    const s = reducer(initialState, { type: 'hydrate', payload: { ...stored, lang: null } })
+    expect(s).toMatchObject({ lang: systemLang(), langPref: null })
+    expect(reducer(s, { type: 'setLang', lang: 'ko' })).toMatchObject({ lang: 'ko', langPref: 'ko' })
   })
 })
 

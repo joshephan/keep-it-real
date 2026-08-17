@@ -77,7 +77,8 @@ export interface PersistedState {
   version: 1
   items: Item[]
   cats: Category[]
-  lang: Lang
+  /** Null while no language has been picked, so the desktop's own is followed. */
+  lang: Lang | null
   view: ViewMode
   colScale: ColScale
   showDiff: boolean
