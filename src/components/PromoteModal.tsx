@@ -16,10 +16,9 @@ export function PromoteModal() {
   const end = diffDays(pr.start, pr.end) < 0 ? pr.start : pr.end
   const drift = diffDays(pr.planEnd, end)
 
-  const driftText =
-    drift === 0 ? t.onTime : drift < 0 ? t.earlierBy(Math.abs(drift)) : t.laterBy(drift)
-  const driftBg = drift === 0 ? C.fill : drift < 0 ? C.positiveTint : C.accentTint
-  const driftColor = drift === 0 ? C.text3 : drift < 0 ? C.positive : C.accent
+  const driftText = drift < 0 ? t.earlierBy(Math.abs(drift)) : t.laterBy(drift)
+  const driftBg = drift < 0 ? C.positiveTint : C.accentTint
+  const driftColor = drift < 0 ? C.positive : C.accent
 
   return (
     <Modal width={470} zIndex={70} onClose={close}>
@@ -86,18 +85,20 @@ export function PromoteModal() {
           </Field>
         </div>
 
-        <div
-          style={{
-            padding: '11px 14px',
-            borderRadius: 9,
-            fontSize: 12.5,
-            fontWeight: 600,
-            background: driftBg,
-            color: driftColor,
-          }}
-        >
-          {driftText}
-        </div>
+        {drift !== 0 && (
+          <div
+            style={{
+              padding: '11px 14px',
+              borderRadius: 9,
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: driftBg,
+              color: driftColor,
+            }}
+          >
+            {driftText}
+          </div>
+        )}
       </div>
 
       <div

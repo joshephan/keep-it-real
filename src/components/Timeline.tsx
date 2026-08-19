@@ -594,6 +594,8 @@ function DriftMarker({
   const actualX = axis.colIndex(actual.start) * axis.colW + axis.colW / 2
   const planX = box.left + box.width
   const drift = diffDays(plan.end || plan.start, actual.end || actual.start)
+  // Promoted exactly on plan: there is no drift to draw, so draw nothing.
+  if (drift === 0) return null
   const color = drift < 0 ? C.positive : C.accent
   const lo = Math.min(actualX, planX)
   const width = Math.max(2, Math.max(actualX, planX) - lo)
@@ -644,7 +646,7 @@ function DriftMarker({
           pointerEvents: 'none',
         }}
       >
-        {drift === 0 ? t.onTime : t.driftLabel(drift)}
+        {t.driftLabel(drift)}
       </div>
     </>
   )
