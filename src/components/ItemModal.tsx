@@ -131,7 +131,7 @@ export function ItemModal() {
                 onChange={(e) => patch({ end: clampDate(e.target.value || form.end) })}
                 style={{
                   ...dateInputStyle,
-                  background: form.single ? '#F4F6F7' : C.surface,
+                  background: form.single ? C.fill : C.surface,
                   color: form.single ? C.text5 : C.text,
                 }}
               />

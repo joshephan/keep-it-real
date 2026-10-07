@@ -169,7 +169,7 @@ export function TopBar({ onPrev, onNext, onToday, onGoToDate }: Props) {
           onClick={() =>
             dispatch({ type: 'openForm', draft: newDraft('plan', today, state.cats[0]?.id ?? 'etc') })
           }
-          style={{ ...ghostButton, padding: '0 13px', border: 'none', background: C.accent, color: C.surface }}
+          style={{ ...ghostButton, padding: '0 13px', border: 'none', background: C.accent, color: C.onFill }}
         >
           {t.newItem}
         </button>

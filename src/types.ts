@@ -3,6 +3,8 @@ export type CategoryId = string
 export type ViewMode = 'day' | 'week' | 'month' | 'year'
 export type Lang = 'ko' | 'en'
 export type CatFilter = 'all' | CategoryId
+/** What the user picked; `system` follows the desktop's light/dark setting. */
+export type ThemePref = 'light' | 'system' | 'dark'
 
 /**
  * Categories are user data: renameable, recolourable, addable, removable.
@@ -73,6 +75,9 @@ export interface PromoteDraft {
 /** Column width multiplier per view, so widening the week view leaves the month view alone. */
 export type ColScale = Record<ViewMode, number>
 
+/** Which of the two lanes are expanded; a closed lane shrinks to a thin strip. */
+export type LaneOpen = Record<Track, boolean>
+
 export interface PersistedState {
   version: 1
   items: Item[]
@@ -83,4 +88,8 @@ export interface PersistedState {
   colScale: ColScale
   showDiff: boolean
   showWeekend: boolean
+  theme: ThemePref
+  /** Share of the lane area given to the actual lane while both are open. */
+  laneSplit: number
+  laneOpen: LaneOpen
 }

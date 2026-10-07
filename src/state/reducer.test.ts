@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { editDraft, initialState, newDraft, reducer, type State } from './reducer'
-import { COL_SCALE, defaultColScale } from '../tokens'
+import { COL_SCALE, defaultColScale, LANE_SPLIT } from '../tokens'
 import { systemLang } from '../lib/locale'
 import type { Item } from '../types'
 
@@ -307,12 +307,16 @@ describe('hydration', () => {
     colScale: { ...defaultColScale(), month: 1.5 },
     showDiff: false,
     showWeekend: false,
+    theme: 'dark' as const,
+    laneSplit: 0.3,
+    laneOpen: { actual: true, plan: false },
   }
 
   it('restores the saved view, language and display settings', () => {
     const s = reducer(initialState, { type: 'hydrate', payload: stored })
     expect(s).toMatchObject({ hydrated: true, view: 'month', lang: 'en', showDiff: false, showWeekend: false })
     expect(s.colScale.month).toBe(1.5)
+    expect(s).toMatchObject({ theme: 'dark', laneSplit: 0.3, laneOpen: { actual: true, plan: false } })
   })
 
   it('keeps the chosen view after switching it', () => {
@@ -345,6 +349,9 @@ describe('import', () => {
     colScale: { ...defaultColScale(), day: 1.4 },
     showDiff: false,
     showWeekend: true,
+    theme: 'system' as const,
+    laneSplit: 0.5,
+    laneOpen: { actual: true, plan: true },
   }
 
   it('replaces items, categories and settings with the file', () => {
@@ -415,5 +422,23 @@ describe('column width', () => {
     expect(s.colScale.day).toBe(1)
     s = reducer(s, { type: 'setView', view: 'week' })
     expect(s.colScale.week).toBe(1.5)
+  })
+})
+
+describe('theme and lanes', () => {
+  it('sets the theme', () => {
+    expect(reducer(initialState, { type: 'setTheme', theme: 'dark' }).theme).toBe('dark')
+  })
+
+  it('keeps the lane split inside its bounds', () => {
+    expect(reducer(initialState, { type: 'setLaneSplit', split: 0.7 }).laneSplit).toBe(0.7)
+    expect(reducer(initialState, { type: 'setLaneSplit', split: 2 }).laneSplit).toBe(LANE_SPLIT.max)
+    expect(reducer(initialState, { type: 'setLaneSplit', split: -1 }).laneSplit).toBe(LANE_SPLIT.min)
+  })
+
+  it('opens and closes each lane on its own', () => {
+    const closed = reducer(initialState, { type: 'toggleLane', track: 'plan' })
+    expect(closed.laneOpen).toEqual({ actual: true, plan: false })
+    expect(reducer(closed, { type: 'toggleLane', track: 'plan' }).laneOpen).toEqual({ actual: true, plan: true })
   })
 })

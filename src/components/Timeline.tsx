@@ -1,6 +1,6 @@
 import { useMemo, type Dispatch, type RefObject } from 'react'
 import type { CategoryId, Item, Track } from '../types'
-import { BAR_H, C, LANE_TOP, MONO, ROW_PITCH, SHADOW } from '../tokens'
+import { BAR_H, C, ink, LANE_TOP, MONO, ROW_PITCH, SHADOW } from '../tokens'
 import { useApp } from '../state/AppContext'
 import type { Axis, Column } from '../lib/axis'
 import { layoutBars, laneHeight, type Box } from '../lib/layout'
@@ -12,6 +12,7 @@ import { useDragScroll } from '../hooks/useDragScroll'
 import { useBarDrag, type BarDragHandlers, type BarPreview } from '../hooks/useBarDrag'
 import { useVisibleCols, type ColRange } from '../hooks/useVisibleCols'
 import type { Strings } from '../i18n'
+import { LaneSplitter, laneFlex } from './LaneSplitter'
 
 interface Props {
   axis: Axis
@@ -43,6 +44,9 @@ export function Timeline({ axis, scrollerRef }: Props) {
     for (let i = vis.from; i < vis.to; i++) out.push({ i, col: axis.colAt(i) })
     return out
   }, [axis, vis.from, vis.to])
+
+  const actualOpen = state.laneOpen.actual
+  const planOpen = state.laneOpen.plan
 
   const todayIndex = axis.colIndex(today)
   const todayX = todayIndex * axis.colW + (axis.view === 'day' ? axis.colW / 2 : 0)
@@ -117,101 +121,181 @@ export function Timeline({ axis, scrollerRef }: Props) {
       >
         <ColumnHeader cols={cols} colW={axis.colW} todayIndex={todayIndex} />
 
-        <div
-          data-lane="actual"
-          style={{
-            flex: 1,
-            position: 'relative',
-            overflowY: 'auto',
-            borderBottom: `1px solid ${C.borderStrong}`,
-            minHeight: 0,
-          }}
-        >
+        {!actualOpen ? (
+          <ClosedLane
+            kind="actual"
+            cols={cols}
+            colW={axis.colW}
+            todayX={todayX}
+            title={t.laneOpen}
+            onOpen={() => dispatch({ type: 'toggleLane', track: 'actual' })}
+            style={{ ...laneFlex('actual', state.laneOpen, state.laneSplit), borderBottom: `1px solid ${C.borderStrong}` }}
+          />
+        ) : (
           <div
+            data-lane="actual"
             style={{
+              ...laneFlex('actual', state.laneOpen, state.laneSplit),
               position: 'relative',
-              width: axis.total,
-              minHeight: '100%',
-              height: laneHeight(actualLayout.laneCount),
+              overflowY: 'auto',
+              borderBottom: `1px solid ${C.borderStrong}`,
+              minHeight: 0,
             }}
           >
-            <Cells
-              cols={cols}
-              colW={axis.colW}
-              kind="actual"
-              showWeekend={state.showWeekend}
-              dispatch={dispatch}
-              defaultCat={defaultCat}
-              didDrag={didDrag}
-            />
-            <TodayLine x={todayX} />
-            {actualLayout.boxes.filter(onScreen).map((box) => (
-              <ActualBar
-                key={box.item.id}
-                box={box}
-                dim={!matches(box.item)}
-                color={colorOf(box.item.cat)}
+            <div
+              style={{
+                position: 'relative',
+                width: axis.total,
+                minHeight: '100%',
+                height: laneHeight(actualLayout.laneCount),
+              }}
+            >
+              <Cells
+                cols={cols}
+                colW={axis.colW}
+                kind="actual"
+                showWeekend={state.showWeekend}
                 dispatch={dispatch}
-                t={t}
-                {...barDrag(box.item)}
+                defaultCat={defaultCat}
+                didDrag={didDrag}
               />
-            ))}
+              <TodayLine x={todayX} />
+              {actualLayout.boxes.filter(onScreen).map((box) => (
+                <ActualBar
+                  key={box.item.id}
+                  box={box}
+                  dim={!matches(box.item)}
+                  color={colorOf(box.item.cat)}
+                  dispatch={dispatch}
+                  t={t}
+                  {...barDrag(box.item)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div
-          data-lane="plan"
-          style={{ flex: 1, position: 'relative', overflowY: 'auto', background: C.muted, minHeight: 0 }}
-        >
+        <LaneSplitter />
+
+        {!planOpen ? (
+          <ClosedLane
+            kind="plan"
+            cols={cols}
+            colW={axis.colW}
+            todayX={todayX}
+            title={t.laneOpen}
+            onOpen={() => dispatch({ type: 'toggleLane', track: 'plan' })}
+            style={{ ...laneFlex('plan', state.laneOpen, state.laneSplit), background: C.muted }}
+          />
+        ) : (
           <div
+            data-lane="plan"
             style={{
+              ...laneFlex('plan', state.laneOpen, state.laneSplit),
               position: 'relative',
-              width: axis.total,
-              minHeight: '100%',
-              height: laneHeight(planLayout.laneCount),
+              overflowY: 'auto',
+              background: C.muted,
+              minHeight: 0,
             }}
           >
-            <Cells
-              cols={cols}
-              colW={axis.colW}
-              kind="plan"
-              showWeekend={state.showWeekend}
-              dispatch={dispatch}
-              defaultCat={defaultCat}
-              didDrag={didDrag}
-            />
-            <TodayLine x={todayX} />
-            {state.showDiff &&
-              planLayout.boxes.map((box) =>
-                // Either half of a pair being dragged would leave this drawn
-                // against dates that no longer apply, so it sits the drag out.
-                dragsThisPair(box.item) ? null : (
-                  <DriftMarker
-                    key={`${box.item.id}-drift`}
-                    box={box}
-                    axis={axis}
-                    items={state.items}
-                    dim={!matches(box.item)}
-                    vis={vis}
-                    t={t}
-                  />
-                ),
-              )}
-            {planLayout.boxes.filter(onScreen).map((box) => (
-              <PlanBar
-                key={box.item.id}
-                box={box}
-                dim={!matches(box.item)}
-                color={colorOf(box.item.cat)}
+            <div
+              style={{
+                position: 'relative',
+                width: axis.total,
+                minHeight: '100%',
+                height: laneHeight(planLayout.laneCount),
+              }}
+            >
+              <Cells
+                cols={cols}
+                colW={axis.colW}
+                kind="plan"
+                showWeekend={state.showWeekend}
                 dispatch={dispatch}
-                t={t}
-                today={today}
-                {...barDrag(box.item)}
+                defaultCat={defaultCat}
+                didDrag={didDrag}
               />
-            ))}
+              <TodayLine x={todayX} />
+              {state.showDiff &&
+                planLayout.boxes.map((box) =>
+                  // Either half of a pair being dragged would leave this drawn
+                  // against dates that no longer apply, so it sits the drag out.
+                  dragsThisPair(box.item) ? null : (
+                    <DriftMarker
+                      key={`${box.item.id}-drift`}
+                      box={box}
+                      axis={axis}
+                      items={state.items}
+                      dim={!matches(box.item)}
+                      vis={vis}
+                      t={t}
+                    />
+                  ),
+                )}
+              {planLayout.boxes.filter(onScreen).map((box) => (
+                <PlanBar
+                  key={box.item.id}
+                  box={box}
+                  dim={!matches(box.item)}
+                  color={colorOf(box.item.cat)}
+                  dispatch={dispatch}
+                  t={t}
+                  today={today}
+                  {...barDrag(box.item)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * A collapsed lane: the grid and today line carry on through it so the strip
+ * still reads as part of the timeline, but its items are hidden and a click
+ * anywhere on it opens it back up.
+ */
+function ClosedLane({
+  kind,
+  cols,
+  colW,
+  todayX,
+  title,
+  onOpen,
+  style,
+}: {
+  kind: Track
+  cols: PlacedColumn[]
+  colW: number
+  todayX: number
+  title: string
+  onOpen: () => void
+  style: React.CSSProperties
+}) {
+  return (
+    <div
+      data-lane={kind}
+      onClick={onOpen}
+      title={title}
+      style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', minHeight: 0, ...style }}
+    >
+      {cols.map(({ i, col }) => (
+        <div
+          key={`${kind}-closed-${col.date}`}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: i * colW,
+            width: colW,
+            borderRight: `1px solid ${C.grid}`,
+            pointerEvents: 'none',
+          }}
+        />
+      ))}
+      <TodayLine x={todayX} />
     </div>
   )
 }
@@ -409,7 +493,7 @@ function ActualBar({
         height: BAR_H,
         borderRadius: 8,
         background: color,
-        color: C.surface,
+        color: C.onFill,
         display: 'flex',
         alignItems: 'center',
         padding: '0 11px',
@@ -487,7 +571,7 @@ function PlanBar({
         // A dragged plan bar needs to read against the actual bars it passes
         // over, so the translucent fill goes solid for the duration.
         background: preview ? C.surface : `${color}14`,
-        color,
+        color: ink(color),
         border: `1.5px dashed ${color}99`,
         display: 'flex',
         alignItems: 'center',
@@ -520,7 +604,7 @@ function PlanBar({
             marginLeft: 'auto',
             fontSize: 10,
             fontWeight: 700,
-            color,
+            color: ink(color),
             opacity: 0.8,
             letterSpacing: '0.03em',
             flex: '0 0 auto',
@@ -550,9 +634,9 @@ function PlanBar({
             height: 21,
             padding: '0 9px',
             borderRadius: 11,
-            border: `1px solid ${color}`,
-            background: 'rgba(255,255,255,0.85)',
-            color,
+            border: `1px solid ${ink(color)}`,
+            background: C.chip,
+            color: ink(color),
             fontSize: 10.5,
             fontWeight: 700,
             cursor: 'pointer',

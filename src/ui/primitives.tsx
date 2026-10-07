@@ -65,7 +65,7 @@ export const primaryButton: CSSProperties = {
   borderRadius: 8,
   border: 'none',
   background: C.accent,
-  color: C.surface,
+  color: C.onFill,
   fontSize: 12.5,
   fontWeight: 600,
   cursor: 'pointer',

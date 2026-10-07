@@ -122,7 +122,7 @@ export function PromoteModal() {
             borderRadius: 8,
             border: 'none',
             background: C.text,
-            color: C.surface,
+            color: C.onFill,
             fontSize: 12.5,
             fontWeight: 600,
             cursor: 'pointer',

@@ -5,9 +5,11 @@ import type {
   ColScale,
   FormDraft,
   Item,
+  LaneOpen,
   Lang,
   PersistedState,
   PromoteDraft,
+  ThemePref,
   Track,
   ViewMode,
 } from '../types'
@@ -15,7 +17,7 @@ import { diffDays } from '../lib/date'
 import { defaultCategories } from '../lib/categories'
 import { EXPAND_MONTHS, NO_PAD, type AxisPad } from '../lib/axis'
 import { systemLang } from '../lib/locale'
-import { clampColScale, defaultColScale } from '../tokens'
+import { clampColScale, clampLaneSplit, defaultColScale, LANE_SPLIT } from '../tokens'
 
 export interface State {
   /** False until the persisted state has been read back. */
@@ -32,6 +34,10 @@ export interface State {
   colScale: ColScale
   showDiff: boolean
   showWeekend: boolean
+  theme: ThemePref
+  /** Actual lane's share of the height while both lanes are open. */
+  laneSplit: number
+  laneOpen: LaneOpen
   /** Ephemeral UI state, never persisted. */
   /** Months the axis has grown past its default window, in each direction. */
   axisPad: AxisPad
@@ -51,6 +57,9 @@ export const initialState: State = {
   langPref: null,
   showDiff: true,
   showWeekend: true,
+  theme: 'system',
+  laneSplit: LANE_SPLIT.default,
+  laneOpen: { actual: true, plan: true },
   view: 'week',
   colScale: defaultColScale(),
   axisPad: NO_PAD,
@@ -72,6 +81,9 @@ export type Action =
   | { type: 'setLang'; lang: Lang }
   | { type: 'toggleDiff' }
   | { type: 'toggleWeekend' }
+  | { type: 'setTheme'; theme: ThemePref }
+  | { type: 'setLaneSplit'; split: number }
+  | { type: 'toggleLane'; track: Track }
   | { type: 'setQuery'; query: string }
   | { type: 'setCat'; cat: CatFilter }
   | { type: 'openForm'; draft: FormDraft }
@@ -114,6 +126,9 @@ export function toPersisted(state: State): PersistedState {
     colScale: state.colScale,
     showDiff: state.showDiff,
     showWeekend: state.showWeekend,
+    theme: state.theme,
+    laneSplit: state.laneSplit,
+    laneOpen: state.laneOpen,
   }
 }
 
@@ -131,6 +146,9 @@ function applyPersisted(state: State, p: PersistedState): State {
     colScale: p.colScale,
     showDiff: p.showDiff,
     showWeekend: p.showWeekend,
+    theme: p.theme,
+    laneSplit: p.laneSplit,
+    laneOpen: p.laneOpen,
   }
 }
 
@@ -243,6 +261,12 @@ export function reducer(state: State, action: Action): State {
       return { ...state, showDiff: !state.showDiff }
     case 'toggleWeekend':
       return { ...state, showWeekend: !state.showWeekend }
+    case 'setTheme':
+      return { ...state, theme: action.theme }
+    case 'setLaneSplit':
+      return { ...state, laneSplit: clampLaneSplit(action.split) }
+    case 'toggleLane':
+      return { ...state, laneOpen: { ...state.laneOpen, [action.track]: !state.laneOpen[action.track] } }
     case 'setQuery':
       return { ...state, query: action.query }
     case 'setCat':

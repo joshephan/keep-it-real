@@ -12,6 +12,7 @@ import { initialState, reducer, toPersisted, type Action, type State } from './r
 import { loadState, onExternalChange, saveState } from '../lib/storage'
 import { strings, type Strings } from '../i18n'
 import { todayISO } from '../lib/date'
+import type { ThemePref } from '../types'
 
 interface AppContextValue {
   state: State
@@ -68,6 +69,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state.colScale,
     state.showDiff,
     state.showWeekend,
+    state.theme,
+    state.laneSplit,
+    state.laneOpen,
   ])
 
   // Keeps <html lang> matching what is actually on screen.
@@ -75,10 +79,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = state.lang
   }, [state.lang])
 
+  useThemeAttribute(state.theme)
+
   const t = useMemo(() => strings(state.lang), [state.lang])
   const value = useMemo<AppContextValue>(() => ({ state, dispatch, t, today }), [state, t, today])
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+}
+
+/**
+ * Resolves the picked theme to light or dark and puts it on <html>, where the
+ * colour variables key off it. `system` keeps listening for desktop changes.
+ */
+function useThemeAttribute(theme: ThemePref): void {
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => {
+      const dark = theme === 'dark' || (theme === 'system' && media.matches)
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+    }
+    apply()
+    if (theme !== 'system') return
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [theme])
 }
 
 /** Keeps "today" honest when the app is left running past midnight. */

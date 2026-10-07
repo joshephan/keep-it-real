@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, shell, type WebContents } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, session, shell, type WebContents } from 'electron'
 import path from 'node:path'
 import { loadState, saveState, storePath, watchStore } from './store'
 import { getAutostart, setAutostart } from './autostart'
@@ -60,7 +60,9 @@ function createWindow(): void {
     minHeight: 600,
     // The design is a frameless surface — the app's own top bar is the title bar.
     frame: false,
-    backgroundColor: '#EEF0F2',
+    // Matches the canvas of whichever theme the renderer will most likely pick,
+    // so the window does not flash light before a dark first paint.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0E1012' : '#EEF0F2',
     show: false,
     autoHideMenuBar: true,
     webPreferences: {

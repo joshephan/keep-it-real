@@ -33,6 +33,9 @@ function store(over: Partial<PersistedState> = {}): PersistedState {
     colScale: { day: 1, week: 1.5, month: 1, year: 1 },
     showDiff: true,
     showWeekend: false,
+    theme: 'light',
+    laneSplit: 0.4,
+    laneOpen: { actual: false, plan: true },
     ...over,
   }
 }
@@ -67,6 +70,8 @@ describe('backup round trip', () => {
         cats: [],
         view: 'decade',
         colScale: { week: 99 },
+        theme: 'sepia',
+        laneSplit: 5,
       }),
     )
     expect(back?.items).toHaveLength(1)
@@ -76,6 +81,11 @@ describe('backup round trip', () => {
     // Unknown view and an absurd column width fall back to the defaults.
     expect(back?.view).toBe('week')
     expect(back?.colScale.week).toBe(2.5)
+    // An unknown theme follows the desktop; the lane split is pulled into range,
+    // and a store without lane flags has both lanes open.
+    expect(back?.theme).toBe('system')
+    expect(back?.laneSplit).toBe(0.85)
+    expect(back?.laneOpen).toEqual({ actual: true, plan: true })
     // An empty category list would leave items unassignable.
     expect(back?.cats.length).toBeGreaterThan(0)
   })

@@ -7,11 +7,13 @@
 @import '@fontsource/jetbrains-mono/500.css';
 @import '@fontsource/jetbrains-mono/600.css';
 
+/* Colour variables for both themes are injected from src/tokens.ts at startup. */
+
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #eef0f2;
+  background: var(--kir-canvas);
 }
 
 * {
@@ -20,7 +22,7 @@ body {
 
 body {
   font-family: 'Instrument Sans', system-ui, sans-serif;
-  color: #1a1d21;
+  color: var(--kir-text);
   -webkit-font-smoothing: antialiased;
   /* Desktop app chrome: no text selection or rubber-banding. */
   user-select: none;
@@ -49,7 +51,7 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c9ced4;
+  background: var(--kir-scroll-thumb);
   border-radius: 6px;
 }
 
@@ -86,7 +88,7 @@ button {
 .kir-range::-webkit-slider-runnable-track {
   height: 3px;
   border-radius: 2px;
-  background: #dfe3e7;
+  background: var(--kir-border-strong);
 }
 
 .kir-range::-webkit-slider-thumb {
@@ -96,13 +98,13 @@ button {
   height: 13px;
   margin-top: -5px;
   border-radius: 50%;
-  background: #ffffff;
-  border: 1.5px solid #8a9199;
+  background: var(--kir-surface);
+  border: 1.5px solid var(--kir-text4);
   box-shadow: 0 1px 2px rgba(16, 20, 26, 0.16);
 }
 
 .kir-range:hover::-webkit-slider-thumb {
-  border-color: #b5442e;
+  border-color: var(--kir-accent);
 }
 
 .kir-range:focus-visible {
@@ -110,7 +112,7 @@ button {
 }
 
 .kir-range:focus-visible::-webkit-slider-thumb {
-  border-color: #b5442e;
+  border-color: var(--kir-accent);
 }
 
 @keyframes kirFade {
@@ -122,4 +124,22 @@ button {
     opacity: 1;
     transform: none;
   }
+}
+
+/* The seam between the lanes: invisible until the pointer or focus finds it. */
+.kir-seam::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 2px;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.kir-seam:hover::after,
+.kir-seam:active::after,
+.kir-seam:focus-visible::after {
+  background: var(--kir-accent);
 }

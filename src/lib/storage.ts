@@ -1,7 +1,7 @@
-import type { Category, ColScale, Item, PersistedState, ViewMode } from '../types'
+import type { Category, ColScale, Item, LaneOpen, PersistedState, ViewMode } from '../types'
 import { defaultCategories } from './categories'
 import { isTime } from './date'
-import { clampColScale, defaultColScale } from '../tokens'
+import { clampColScale, clampLaneSplit, defaultColScale, LANE_SPLIT } from '../tokens'
 
 const WEB_KEY = 'keepitreal.v1'
 
@@ -95,6 +95,12 @@ function normalizeColScale(raw: unknown): ColScale {
   return out
 }
 
+/** Both lanes start open; only an explicit `false` closes one. */
+function normalizeLaneOpen(raw: unknown): LaneOpen {
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  return { actual: o.actual !== false, plan: o.plan !== false }
+}
+
 /**
  * Turns anything that parsed as JSON into a state this version can run on, or
  * null if there was no object at all. Exported because an imported backup has
@@ -121,6 +127,10 @@ export function normalize(raw: unknown): PersistedState | null {
     colScale: normalizeColScale(o.colScale),
     showDiff: o.showDiff !== false,
     showWeekend: o.showWeekend !== false,
+    // Stores written before themes existed follow the desktop.
+    theme: o.theme === 'light' || o.theme === 'dark' ? o.theme : 'system',
+    laneSplit: typeof o.laneSplit === 'number' ? clampLaneSplit(o.laneSplit) : LANE_SPLIT.default,
+    laneOpen: normalizeLaneOpen(o.laneOpen),
   }
 }
 

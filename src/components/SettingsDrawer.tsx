@@ -1,5 +1,5 @@
 import { C } from '../tokens'
-import type { Category } from '../types'
+import type { Category, ThemePref } from '../types'
 import { useApp } from '../state/AppContext'
 import { Drawer } from '../ui/Overlay'
 import { choiceButton, iconButton } from '../ui/primitives'
@@ -13,6 +13,12 @@ import { uid } from '../lib/uid'
 import type { Strings } from '../i18n'
 import { useCallback, type Dispatch, type KeyboardEvent, type PointerEvent } from 'react'
 import type { Action } from '../state/reducer'
+
+const THEMES = [
+  ['light', 'themeLight'],
+  ['system', 'themeSystem'],
+  ['dark', 'themeDark'],
+] as const satisfies readonly (readonly [ThemePref, keyof Strings])[]
 
 export function SettingsDrawer() {
   const { state, dispatch, t, today } = useApp()
@@ -100,6 +106,20 @@ export function SettingsDrawer() {
             <button onClick={() => dispatch({ type: 'setLang', lang: 'en' })} style={choiceButton(!ko)}>
               English
             </button>
+          </div>
+        </Section>
+
+        <Section title={t.sTheme}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {THEMES.map(([theme, label]) => (
+              <button
+                key={theme}
+                onClick={() => dispatch({ type: 'setTheme', theme })}
+                style={choiceButton(state.theme === theme)}
+              >
+                {t[label]}
+              </button>
+            ))}
           </div>
         </Section>
 
@@ -279,7 +299,7 @@ function ImportConfirm({
             borderRadius: 8,
             border: 'none',
             background: C.accent,
-            color: C.surface,
+            color: C.onFill,
             fontSize: 12.5,
             fontWeight: 600,
             cursor: 'pointer',
