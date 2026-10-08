@@ -570,9 +570,11 @@ function PlanBar({
         borderRadius: 8,
         // A dragged plan bar needs to read against the actual bars it passes
         // over, so the translucent fill goes solid for the duration.
-        background: preview ? C.surface : `${color}14`,
+        // Tint and outline come from the lifted colour too, or the darker
+        // categories' dashed outline all but vanishes on the dark surface.
+        background: preview ? C.surface : `color-mix(in srgb, ${ink(color)} 8%, transparent)`,
         color: ink(color),
-        border: `1.5px dashed ${color}99`,
+        border: `1.5px dashed color-mix(in srgb, ${ink(color)} 60%, transparent)`,
         display: 'flex',
         alignItems: 'center',
         gap: 6,

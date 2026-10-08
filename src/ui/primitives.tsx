@@ -16,7 +16,8 @@ export const segButton = (active: boolean, tight = false): CSSProperties => ({
   boxShadow: active ? SHADOW.seg : 'none',
 })
 
-export const pill = (active: boolean, color: string): CSSProperties => ({
+/** `onColor` is the label on an active pill; categories are white in both themes. */
+export const pill = (active: boolean, color: string, onColor: string = C.onFill): CSSProperties => ({
   height: 26,
   padding: '0 10px',
   borderRadius: 20,
@@ -25,7 +26,7 @@ export const pill = (active: boolean, color: string): CSSProperties => ({
   fontWeight: 600,
   border: `1px solid ${active ? color : C.border}`,
   background: active ? color : C.surface,
-  color: active ? C.surface : C.text3,
+  color: active ? onColor : C.text3,
   whiteSpace: 'nowrap',
 })
 

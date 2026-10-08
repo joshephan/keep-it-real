@@ -9,8 +9,10 @@ export function FilterBar() {
   const { state, dispatch, t } = useApp()
   const layout = useLayoutMode()
 
-  const filters: { id: CatFilter; label: string; color: string }[] = [
-    { id: 'all', label: t.all, color: C.text2 },
+  // "All" is filled with a text colour, which turns light in dark mode, so its
+  // label inverts with the surface instead of staying white.
+  const filters: { id: CatFilter; label: string; color: string; on?: string }[] = [
+    { id: 'all', label: t.all, color: C.text2, on: C.surface },
     ...state.cats.map((c) => ({ id: c.id as CatFilter, label: catLabel(c, state.lang), color: c.color })),
   ]
 
@@ -66,7 +68,7 @@ export function FilterBar() {
           <button
             key={f.id}
             onClick={() => dispatch({ type: 'setCat', cat: f.id })}
-            style={pill(state.cat === f.id, f.color)}
+            style={pill(state.cat === f.id, f.color, f.on)}
           >
             {f.label}
           </button>

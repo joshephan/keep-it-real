@@ -122,7 +122,8 @@ export function PromoteModal() {
             borderRadius: 8,
             border: 'none',
             background: C.text,
-            color: C.onFill,
+            // Inverts with the theme: `text` is near-white in dark mode.
+            color: C.surface,
             fontSize: 12.5,
             fontWeight: 600,
             cursor: 'pointer',
